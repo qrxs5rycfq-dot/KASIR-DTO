@@ -1,0 +1,181 @@
+from datetime import datetime, timezone
+from functools import wraps
+from flask import redirect, url_for, flash, current_app
+from flask_login import current_user
+from werkzeug.utils import secure_filename
+from models import db, User, Branch, BranchMenuStock, City, Brand
+import os
+import uuid
+
+
+def utc_now():
+    """Return current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
+
+
+def format_number_filter(value):
+    """Format angka dengan pemisah ribuan"""
+    try:
+        return f"{int(value):,}".replace(",", ".")
+    except (ValueError, TypeError):
+        return value
+
+
+def format_currency(value):
+    """Format sebagai mata uang Rupiah"""
+    try:
+        return f"Rp {int(value):,}".replace(",", ".")
+    except (ValueError, TypeError):
+        return value
+
+
+def get_user_branch_id():
+    """Get the current user's branch_id. Returns None for admin/owner (sees all)."""
+    if not current_user.is_authenticated:
+        return None
+    return current_user.branch_id
+
+
+def get_default_branch_id():
+    """Get branch_id for data creation. Returns user's branch or Pusat branch for admin/owner.
+    Ensures records always have a valid branch_id."""
+    bid = get_user_branch_id()
+    if bid is not None:
+        return bid
+    # Admin/owner: default to Pusat branch
+    pusat = Branch.query.filter_by(code='PUSAT').first()
+    return pusat.id if pusat else None
+
+
+def branch_filter(query, model):
+    """Apply branch filter to a query. Admin/owner (branch_id=NULL) sees all data."""
+    bid = get_user_branch_id()
+    if bid is not None:
+        return query.filter(model.branch_id == bid)
+    return query
+
+
+def get_branch_stock(menu_item_id, branch_id):
+    """Get BranchMenuStock for a menu item at a specific branch. Creates default if missing."""
+    if branch_id is None:
+        return None
+    bms = BranchMenuStock.query.filter_by(branch_id=branch_id, menu_item_id=menu_item_id).first()
+    if not bms:
+        bms = BranchMenuStock(branch_id=branch_id, menu_item_id=menu_item_id, stock=100, is_available=True)
+        db.session.add(bms)
+        db.session.flush()
+    return bms
+
+
+def get_menu_with_branch_stock(menu_items, branch_id):
+    """Attach per-branch stock/availability to menu item dicts. Returns list of dicts."""
+    if branch_id is None:
+        # Owner sees global data – use MenuItem's own stock as fallback
+        return [item.to_dict() for item in menu_items]
+    
+    # Batch-load all branch stock for this branch
+    item_ids = [item.id for item in menu_items]
+    stocks = {bms.menu_item_id: bms for bms in
+              BranchMenuStock.query.filter(
+                  BranchMenuStock.branch_id == branch_id,
+                  BranchMenuStock.menu_item_id.in_(item_ids)
+              ).all()} if item_ids else {}
+    
+    result = []
+    for item in menu_items:
+        d = item.to_dict()
+        bms = stocks.get(item.id)
+        if bms:
+            d['stock'] = bms.stock
+            d['is_available'] = bms.is_available
+        else:
+            d['stock'] = 100  # default
+            d['is_available'] = True
+        result.append(d)
+    return result
+
+
+def permission_required(permission):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return redirect(url_for('auth.login'))
+            if not current_user.has_permission(permission):
+                flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+                return redirect(url_for('views.dashboard'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+def role_required(*roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return redirect(url_for('auth.login'))
+            if not any(current_user.has_role(role) for role in roles):
+                flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+                return redirect(url_for('views.dashboard'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
+def allowed_file(filename):
+    """Check if file extension is allowed"""
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def save_uploaded_image(file):
+    """Save uploaded image and return the relative path"""
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        # Generate unique filename
+        ext = filename.rsplit('.', 1)[1].lower()
+        unique_filename = f"{uuid.uuid4().hex}.{ext}"
+        
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        filepath = os.path.join(upload_folder, unique_filename)
+        file.save(filepath)
+        return f"/uploads/{unique_filename}"
+    return None
+
+
+def get_setting(key, default=None):
+    from models import Setting
+    s = Setting.query.filter_by(key=key).first()
+    return s.value if s else default
+
+
+def set_setting(key, value, description=None):
+    from models import Setting
+    s = Setting.query.filter_by(key=key).first()
+    if s:
+        s.value = value
+        if description:
+            s.description = description
+    else:
+        s = Setting(key=key, value=value, description=description or '')
+        db.session.add(s)
+    db.session.commit()
+
+
+def create_notification(type, title, message, user_id=None, data=None):
+    """Create a notification for a user or broadcast"""
+    from models import Notification
+    import json
+    notification = Notification(
+        type=type,
+        title=title,
+        message=message,
+        user_id=user_id,
+        data=json.dumps(data) if data else None
+    )
+    db.session.add(notification)
+    db.session.commit()
+    return notification
