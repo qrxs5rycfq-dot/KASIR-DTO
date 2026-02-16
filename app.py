@@ -251,6 +251,17 @@ def handle_join_branch(data):
     branch_id = data.get('branch_id', 'all')
     join_room(f'branch_{branch_id}')
     emit('joined', {'branch_id': branch_id, 'message': 'Connected to print channel'})
+    
+    # Kirim pending prints ke client yang baru terhubung
+    try:
+        query = PendingPrint.query.filter_by(status='pending').order_by(PendingPrint.created_at)
+        if branch_id != 'all':
+            query = query.filter_by(branch_id=branch_id)
+        pending_prints = query.limit(50).all()
+        for p in pending_prints:
+            emit('new_print_job', p.to_dict())
+    except Exception as e:
+        print(f"Error sending pending prints on join: {e}")
 
 @socketio.on('printer_status')
 def handle_printer_status(data):
@@ -281,6 +292,8 @@ def handle_print_failed(data):
             pending.error_message = error
             if pending.retry_count >= 5:
                 pending.status = 'failed'
+            else:
+                pending.status = 'pending'
             db.session.commit()
             emit('print_status', {'print_id': print_id, 'status': pending.status, 'retry_count': pending.retry_count}, broadcast=True)
 
@@ -522,8 +535,15 @@ def get_unprocessed_prints():
         user = current_user
         branch_id = get_user_branch_id()
     
-    # Ambil pending prints dengan status pending
-    query = PendingPrint.query.filter_by(status='pending').order_by(PendingPrint.created_at)
+    # Ambil pending prints dengan status pending, atau processing yang stuck > 2 menit
+    from sqlalchemy import or_
+    two_min_ago = utc_now() - timedelta(minutes=2)
+    query = PendingPrint.query.filter(
+        or_(
+            PendingPrint.status == 'pending',
+            db.and_(PendingPrint.status == 'processing', PendingPrint.updated_at < two_min_ago)
+        )
+    ).order_by(PendingPrint.created_at)
     
     if branch_id:
         query = query.filter_by(branch_id=branch_id)
@@ -532,8 +552,8 @@ def get_unprocessed_prints():
     
     # Mark prints as processing when fetched
     for p in pending_prints:
-        if p.status == 'pending':
-            p.status = 'processing'
+        p.status = 'processing'
+        p.updated_at = utc_now()
     db.session.commit()
     
     return jsonify({

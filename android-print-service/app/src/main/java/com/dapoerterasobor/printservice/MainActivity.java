@@ -401,9 +401,9 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Hanya aktifkan swipe refresh saat WebView sudah di posisi paling atas
-        // Ini mencegah refresh yang tidak diinginkan saat scroll ke atas
+        // canScrollVertically(-1) returns false jika tidak bisa scroll ke atas lagi
         webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-            swipeRefreshLayout.setEnabled(scrollY == 0);
+            swipeRefreshLayout.setEnabled(!webView.canScrollVertically(-1));
         });
     }
 
@@ -999,13 +999,8 @@ public class MainActivity extends AppCompatActivity {
                 btnToggleService.setText("⏹ STOP");
                 btnToggleService.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#dc2626")));
 
-                String stats = String.format("📄 Cetak: %d  |  ❌ Gagal: %d", printed, failed);
-                if (status != null && !status.isEmpty()) {
-                    stats = status + " | " + stats;
-                }
                 if (txtPrintStats != null) {
-                    txtPrintStats.setText(stats);
-                    txtPrintStats.setVisibility(View.VISIBLE);
+                    txtPrintStats.setVisibility(View.GONE);
                 }
             } else {
                 txtServiceStatus.setText("🔴 PRINT SERVICE MATI");
