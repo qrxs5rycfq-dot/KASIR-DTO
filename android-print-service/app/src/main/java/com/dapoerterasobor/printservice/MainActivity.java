@@ -887,6 +887,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void closeSettings() {
         settingsVisible = false;
+        float slideOffset = getResources().getDimension(R.dimen.settings_panel_slide_offset);
 
         // Fade out backdrop
         settingsBackdrop.animate().alpha(0f).setDuration(200).withEndAction(() ->
@@ -895,7 +896,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Slide panel out to right
         settingsPanel.animate()
-                .translationX(400)
+                .translationX(slideOffset)
                 .setDuration(250)
                 .setInterpolator(new DecelerateInterpolator())
                 .withEndAction(() -> settingsPanel.setVisibility(View.GONE))

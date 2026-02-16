@@ -97,14 +97,14 @@
     <!-- Layer 4: Settings panel (slide-in overlay from right) -->
     <ScrollView
         android:id="@+id/settingsPanel"
-        android:layout_width="360dp"
+        android:layout_width="@dimen/settings_panel_width"
         android:layout_height="match_parent"
         android:layout_gravity="end"
         android:background="@drawable/settings_panel_background"
         android:visibility="gone"
         android:fillViewport="true"
         android:elevation="16dp"
-        android:translationX="400dp">
+        android:translationX="@dimen/settings_panel_slide_offset">
 
         <LinearLayout
             android:layout_width="match_parent"
