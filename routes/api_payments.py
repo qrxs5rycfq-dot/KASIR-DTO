@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 import os
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -507,3 +508,280 @@ def api_test_bri_gateway():
             'success': False,
             'message': err or 'Gagal mendapatkan token BRI'
         })
+
+
+# ========== TRIPAY PAYMENT GATEWAY ==========
+
+def tripay_create_transaction(order, payment_method_code):
+    """Create a Tripay closed payment transaction"""
+    api_key = os.environ.get('TRIPAY_API_KEY', '')
+    private_key = os.environ.get('TRIPAY_PRIVATE_KEY', '')
+    merchant_code = os.environ.get('TRIPAY_MERCHANT_CODE', '')
+    is_production = os.environ.get('TRIPAY_IS_PRODUCTION', 'false').lower() == 'true'
+
+    if not api_key or not private_key or not merchant_code:
+        return None, 'TRIPAY_API_KEY, TRIPAY_PRIVATE_KEY, atau TRIPAY_MERCHANT_CODE belum dikonfigurasi'
+
+    base_url = 'https://tripay.co.id/api' if is_production else 'https://tripay.co.id/api-sandbox'
+    merchant_ref = f"DTO-{order.order_number}"
+
+    # Calculate signature: HMAC-SHA256(merchant_code + merchant_ref + amount)
+    amount = int(order.total)
+    signature = hmac.new(
+        private_key.encode('utf-8'),
+        f"{merchant_code}{merchant_ref}{amount}".encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+    # Build order items
+    order_items = []
+    for item in order.items:
+        order_items.append({
+            'sku': str(item.menu_item_id),
+            'name': item.name[:50],
+            'price': int(item.price),
+            'quantity': item.quantity
+        })
+
+    payload = {
+        'method': payment_method_code,
+        'merchant_ref': merchant_ref,
+        'amount': amount,
+        'customer_name': order.customer_name or 'Customer',
+        'customer_email': 'customer@kasir.local',
+        'order_items': order_items,
+        'expired_time': int((datetime.now(timezone.utc) + timedelta(hours=24)).timestamp()),
+        'signature': signature
+    }
+
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        resp = requests.post(f'{base_url}/transaction/create', json=payload, headers=headers, timeout=30)
+        data = resp.json()
+
+        if data.get('success'):
+            result = data.get('data', {})
+            return result, None
+        else:
+            return None, data.get('message', 'Tripay transaction error')
+    except Exception as e:
+        return None, f'Tripay connection error: {str(e)}'
+
+
+@api_payments.route('/api/payment/tripay/create', methods=['POST'])
+@login_required
+def api_create_tripay_payment():
+    """Create Tripay payment for an order"""
+    try:
+        data = request.json
+        order_id = data.get('order_id')
+        payment_method = data.get('payment_method', 'QRIS')
+
+        order = Order.query.get_or_404(order_id)
+
+        result, err = tripay_create_transaction(order, payment_method)
+        if not result:
+            return jsonify({'success': False, 'error': err}), 400
+
+        # Update payment record
+        if order.payment:
+            order.payment.payment_method = 'tripay'
+            order.payment.midtrans_order_id = result.get('merchant_ref', '')
+            order.payment.midtrans_transaction_id = result.get('reference', '')
+            order.payment.status = 'pending'
+            order.payment.payment_url = result.get('checkout_url', '')
+        else:
+            payment = Payment(
+                order_id=order.id,
+                payment_method='tripay',
+                amount=order.total,
+                status='pending',
+                midtrans_order_id=result.get('merchant_ref', ''),
+                midtrans_transaction_id=result.get('reference', ''),
+                payment_url=result.get('checkout_url', '')
+            )
+            db.session.add(payment)
+
+        db.session.commit()
+
+        # Generate QR image if QRIS
+        qr_image_url = None
+        qr_string = result.get('qr_string') or result.get('qr_url', '')
+        if qr_string:
+            try:
+                qr = qrcode.make(qr_string)
+                qr_buffer = BytesIO()
+                qr.save(qr_buffer, format='PNG')
+                qr_buffer.seek(0)
+                qr_image_url = 'data:image/png;base64,' + base64.b64encode(qr_buffer.getvalue()).decode()
+            except Exception:
+                pass
+
+        return jsonify({
+            'success': True,
+            'reference': result.get('reference', ''),
+            'merchant_ref': result.get('merchant_ref', ''),
+            'checkout_url': result.get('checkout_url', ''),
+            'qr_image': qr_image_url,
+            'pay_code': result.get('pay_code', ''),
+            'pay_url': result.get('pay_url', ''),
+            'amount': order.total,
+            'expired_time': result.get('expired_time')
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_payments.route('/api/payment/tripay/status', methods=['POST'])
+@login_required
+def api_check_tripay_status():
+    """Check Tripay payment status"""
+    data = request.json
+    order_id = data.get('order_id')
+    order = Order.query.get_or_404(order_id)
+
+    if not order.payment or not order.payment.midtrans_transaction_id:
+        return jsonify({'success': False, 'error': 'No Tripay transaction found'}), 400
+
+    api_key = os.environ.get('TRIPAY_API_KEY', '')
+    is_production = os.environ.get('TRIPAY_IS_PRODUCTION', 'false').lower() == 'true'
+    base_url = 'https://tripay.co.id/api' if is_production else 'https://tripay.co.id/api-sandbox'
+
+    try:
+        resp = requests.get(
+            f'{base_url}/transaction/detail',
+            params={'reference': order.payment.midtrans_transaction_id},
+            headers={'Authorization': f'Bearer {api_key}'},
+            timeout=15
+        )
+        resp_data = resp.json()
+
+        if resp_data.get('success'):
+            detail = resp_data.get('data', {})
+            tripay_status = detail.get('status', '')
+
+            if tripay_status == 'PAID' and order.payment.status != 'paid':
+                order.payment.status = 'paid'
+                order.payment.paid_at = utc_now()
+                order.status = 'completed'
+
+                amount_formatted = f"{order.payment.amount:,}".replace(',', '.')
+                create_notification(
+                    type='payment_success',
+                    title='Pembayaran Tripay Berhasil!',
+                    message=f'Order #{order.order_number} - Rp {amount_formatted}',
+                    data={'order_id': order.id, 'payment_id': order.payment.id}
+                )
+                db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'status': 'paid' if tripay_status == 'PAID' else tripay_status.lower(),
+                'tripay_status': tripay_status,
+                'details': detail
+            })
+        else:
+            return jsonify({'success': False, 'error': resp_data.get('message', 'Status check failed')}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@csrf.exempt
+@api_payments.route('/api/payment/tripay/callback', methods=['POST'])
+@limiter.limit("30 per minute")
+def api_tripay_callback():
+    """Handle Tripay payment callback webhook"""
+    try:
+        private_key = os.environ.get('TRIPAY_PRIVATE_KEY', '')
+        callback_signature = request.headers.get('X-Callback-Signature', '')
+        raw_body = request.get_data(as_text=True)
+
+        # Verify signature
+        if private_key and callback_signature:
+            expected_signature = hmac.new(
+                private_key.encode('utf-8'),
+                raw_body.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(callback_signature, expected_signature):
+                return jsonify({'error': 'Invalid signature'}), 403
+
+        data = request.json
+        merchant_ref = data.get('merchant_ref', '')
+        status = data.get('status', '')
+
+        payment = Payment.query.filter_by(midtrans_order_id=merchant_ref).first()
+        if payment:
+            if status == 'PAID':
+                payment.status = 'paid'
+                payment.paid_at = utc_now()
+                payment.order.status = 'completed'
+
+                amount_formatted = f"{payment.amount:,}".replace(',', '.')
+                create_notification(
+                    type='payment_success',
+                    title='Pembayaran Tripay Berhasil!',
+                    message=f'Order #{payment.order.order_number} - Rp {amount_formatted}',
+                    data={'order_id': payment.order_id, 'payment_id': payment.id}
+                )
+            elif status in ('EXPIRED', 'FAILED'):
+                payment.status = 'failed'
+                create_notification(
+                    type='payment_failed',
+                    title='Pembayaran Tripay Gagal',
+                    message=f'Order #{payment.order.order_number} - Status: {status}',
+                    data={'order_id': payment.order_id, 'payment_id': payment.id}
+                )
+
+            db.session.commit()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_payments.route('/api/payment-gateway/test-tripay', methods=['POST'])
+@login_required
+@role_required('admin')
+def api_test_tripay_gateway():
+    """Test Tripay API connection"""
+    api_key = os.environ.get('TRIPAY_API_KEY', '')
+    is_production = os.environ.get('TRIPAY_IS_PRODUCTION', 'false').lower() == 'true'
+
+    if not api_key:
+        return jsonify({
+            'success': False,
+            'message': 'TRIPAY_API_KEY belum dikonfigurasi'
+        })
+
+    base_url = 'https://tripay.co.id/api' if is_production else 'https://tripay.co.id/api-sandbox'
+
+    try:
+        resp = requests.get(
+            f'{base_url}/merchant/payment-channel',
+            headers={'Authorization': f'Bearer {api_key}'},
+            timeout=10
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get('success'):
+                channels = data.get('data', [])
+                active_count = sum(1 for ch in channels if ch.get('active'))
+                return jsonify({
+                    'success': True,
+                    'message': f'Koneksi Tripay berhasil! {active_count} metode pembayaran aktif. Mode: {"Production" if is_production else "Sandbox"}'
+                })
+            else:
+                return jsonify({'success': False, 'message': data.get('message', 'Unknown error')})
+        else:
+            return jsonify({'success': False, 'message': f'HTTP {resp.status_code}'})
+    except requests.exceptions.Timeout:
+        return jsonify({'success': False, 'message': 'Koneksi timeout'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})

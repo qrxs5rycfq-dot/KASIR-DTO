@@ -168,9 +168,9 @@ def set_setting(key, value, description=None):
     db.session.commit()
 
 
-def create_notification(type, title, message, user_id=None, data=None):
-    """Create a notification for a user or broadcast"""
-    from models import Notification
+def create_notification(type, title, message, user_id=None, data=None, target_roles=None):
+    """Create a notification for a user or broadcast, and send FCM push to relevant users"""
+    from models import Notification, User, Role
     import json
     notification = Notification(
         type=type,
@@ -181,7 +181,86 @@ def create_notification(type, title, message, user_id=None, data=None):
     )
     db.session.add(notification)
     db.session.commit()
+
+    # Send FCM push notification to relevant users
+    try:
+        _send_fcm_push(title, message, data, user_id=user_id, target_roles=target_roles)
+    except Exception as e:
+        # FCM is best-effort, don't break notification creation on failure
+        import logging
+        logging.getLogger(__name__).warning(f'FCM push failed: {e}')
+
     return notification
+
+
+def _send_fcm_push(title, message, data=None, user_id=None, target_roles=None):
+    """Send FCM push notification to specific user or users by role"""
+    from models import User, Role
+    import json
+    import requests as req
+
+    fcm_server_key = os.environ.get('FCM_SERVER_KEY', '')
+    if not fcm_server_key:
+        return  # FCM not configured
+
+    # Collect FCM tokens
+    tokens = []
+    if user_id:
+        user = db.session.get(User, user_id)
+        if user and user.fcm_token:
+            tokens.append(user.fcm_token)
+    elif target_roles:
+        # Send to all users with specific roles
+        users = User.query.filter(
+            User.is_active == True,
+            User.fcm_token.isnot(None),
+            User.fcm_token != ''
+        ).all()
+        for u in users:
+            if any(r.name in target_roles for r in u.roles):
+                tokens.append(u.fcm_token)
+    else:
+        # Broadcast to all active users with FCM tokens
+        users = User.query.filter(
+            User.is_active == True,
+            User.fcm_token.isnot(None),
+            User.fcm_token != ''
+        ).all()
+        tokens = [u.fcm_token for u in users]
+
+    if not tokens:
+        return
+
+    headers = {
+        'Authorization': f'key={fcm_server_key}',
+        'Content-Type': 'application/json'
+    }
+
+    # Send to each token (FCM v1 legacy API supports registration_ids for batch)
+    payload = {
+        'registration_ids': tokens[:1000],  # FCM limit: 1000 per request
+        'notification': {
+            'title': title,
+            'body': message,
+            'sound': 'default',
+            'click_action': 'OPEN_ACTIVITY'
+        },
+        'data': data or {},
+        'priority': 'high'
+    }
+
+    try:
+        resp = req.post(
+            'https://fcm.googleapis.com/fcm/send',
+            json=payload,
+            headers=headers,
+            timeout=10
+        )
+        if resp.status_code != 200:
+            import logging
+            logging.getLogger(__name__).warning(f'FCM send failed: HTTP {resp.status_code}')
+    except Exception:
+        pass
 
 
 def validate_token(token):

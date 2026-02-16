@@ -65,6 +65,7 @@ class User(UserMixin, db.Model):
     force_password_change = db.Column(db.Boolean, default=False)  # Force password change on first login
     printer_name = db.Column(db.String(100))  # Store last connected printer name
     printer_id = db.Column(db.String(100))  # Store Bluetooth device ID for auto-reconnect
+    fcm_token = db.Column(db.String(512), nullable=True)  # FCM token for push notifications
     branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=True)  # NULL = owner/admin sees all
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)

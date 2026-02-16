@@ -24,7 +24,7 @@
             </h3>
             <p class="text-gray-400 text-sm mb-4">Pilih satu gateway pembayaran yang aktif. Hanya satu yang bisa aktif pada saat bersamaan.</p>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- Midtrans Option -->
                 <div id="midtrans-option" onclick="setActiveGateway('midtrans')"
                      class="relative p-5 rounded-xl border-2 cursor-pointer transition-all {{ 'border-blue-500 bg-blue-500/10' if active_gateway == 'midtrans' else 'border-white/10 bg-white/5 hover:border-white/20' }}">
@@ -72,11 +72,35 @@
                     </div>
                     {% endif %}
                 </div>
+                
+                <!-- Tripay Option -->
+                <div id="tripay-option" onclick="setActiveGateway('tripay')"
+                     class="relative p-5 rounded-xl border-2 cursor-pointer transition-all {{ 'border-green-500 bg-green-500/10' if active_gateway == 'tripay' else 'border-white/10 bg-white/5 hover:border-white/20' }}">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center">
+                            <i class="fas fa-money-check-alt text-xl text-white"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-semibold">Tripay</h4>
+                            <p class="text-xs text-gray-400">QRIS, VA, E-Wallet, Minimarket</p>
+                        </div>
+                        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center {{ 'border-green-500' if active_gateway == 'tripay' else 'border-gray-500' }}">
+                            {% if active_gateway == 'tripay' %}
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if active_gateway == 'tripay' %}
+                    <div class="mt-3 text-xs text-green-400 font-medium">
+                        <i class="fas fa-check-circle mr-1"></i> AKTIF
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             <div id="gateway-message" class="hidden mt-3 p-3 rounded-lg text-sm"></div>
         </div>
         
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Midtrans Configuration -->
             <div class="glass-card rounded-xl p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -205,10 +229,71 @@ BRI_IS_PRODUCTION=false
                     </div>
                 </div>
             </div>
+            
+            <!-- Tripay Configuration -->
+            <div class="glass-card rounded-xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold">
+                        <i class="fas fa-money-check-alt text-green-400 mr-2"></i>
+                        Tripay
+                    </h3>
+                    {% if tripay_is_configured %}
+                    <span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
+                        <i class="fas fa-check-circle mr-1"></i> Dikonfigurasi
+                    </span>
+                    {% else %}
+                    <span class="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-xs font-medium">
+                        <i class="fas fa-exclamation-circle mr-1"></i> Belum
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">API Key</label>
+                        <input type="text" value="{{ tripay_api_key or '(belum diisi)' }}" readonly
+                               class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 font-mono text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Private Key</label>
+                        <input type="text" value="{{ tripay_private_key or '(belum diisi)' }}" readonly
+                               class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 font-mono text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Merchant Code</label>
+                        <input type="text" value="{{ tripay_merchant_code or '(belum diisi)' }}" readonly
+                               class="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 font-mono text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Environment</label>
+                        <div class="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm">
+                            {% if tripay_is_production %}
+                            <span class="text-green-400"><i class="fas fa-globe mr-1"></i>Production</span>
+                            {% else %}
+                            <span class="text-yellow-400"><i class="fas fa-flask mr-1"></i>Sandbox</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <button onclick="testTripay()" id="test-tripay-btn"
+                            class="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-colors">
+                        <i class="fas fa-plug mr-2"></i>Test Koneksi Tripay
+                    </button>
+                    <div id="tripay-result" class="hidden p-3 rounded-lg text-sm"></div>
+                    
+                    <div class="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-xs text-gray-300">
+                        <p class="font-medium text-green-400 mb-1"><i class="fas fa-info-circle mr-1"></i> Konfigurasi via .env</p>
+                        <code class="block bg-black/30 rounded p-2 mt-1 font-mono text-gray-400">
+TRIPAY_API_KEY=your_api_key<br>
+TRIPAY_PRIVATE_KEY=your_private_key<br>
+TRIPAY_MERCHANT_CODE=your_merchant_code<br>
+TRIPAY_IS_PRODUCTION=false
+                        </code>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <!-- Setup Guides -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
             <div class="glass-card rounded-xl p-6">
                 <h3 class="text-lg font-semibold mb-4">
                     <i class="fas fa-book text-blue-400 mr-2"></i>
@@ -254,6 +339,31 @@ BRI_IS_PRODUCTION=false
                     </div>
                 </div>
             </div>
+            
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-lg font-semibold mb-4">
+                    <i class="fas fa-book text-green-400 mr-2"></i>
+                    Cara Setup Tripay
+                </h3>
+                <div class="space-y-3 text-sm text-gray-300">
+                    <div class="flex items-start space-x-3">
+                        <span class="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
+                        <p>Buat akun di <a href="https://tripay.co.id" target="_blank" class="text-green-400 hover:underline">tripay.co.id</a> dan daftar sebagai merchant.</p>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <span class="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
+                        <p>Buka menu Integrasi → Merchant untuk mendapatkan API Key, Private Key, dan Merchant Code.</p>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <span class="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                        <p>Atur Callback URL ke <code class="bg-white/10 px-1 rounded">/api/payment/tripay/callback</code>.</p>
+                    </div>
+                    <div class="flex items-start space-x-3">
+                        <span class="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
+                        <p>Masukkan credentials ke <code class="bg-white/10 px-1 rounded">.env</code> dan restart.</p>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- Supported Payment Methods -->
@@ -262,11 +372,11 @@ BRI_IS_PRODUCTION=false
                 <i class="fas fa-wallet text-green-400 mr-2"></i>
                 Metode Pembayaran Didukung
             </h3>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
                 <div class="text-center p-4 bg-white/5 rounded-lg">
                     <i class="fas fa-qrcode text-2xl text-purple-400 mb-2"></i>
                     <p class="text-sm">QRIS</p>
-                    <p class="text-xs text-gray-500">Midtrans + BRI</p>
+                    <p class="text-xs text-gray-500">Semua Gateway</p>
                 </div>
                 <div class="text-center p-4 bg-white/5 rounded-lg">
                     <i class="fas fa-credit-card text-2xl text-blue-400 mb-2"></i>
@@ -276,7 +386,7 @@ BRI_IS_PRODUCTION=false
                 <div class="text-center p-4 bg-white/5 rounded-lg">
                     <i class="fas fa-university text-2xl text-green-400 mb-2"></i>
                     <p class="text-sm">Transfer Bank</p>
-                    <p class="text-xs text-gray-500">Midtrans</p>
+                    <p class="text-xs text-gray-500">Midtrans + Tripay</p>
                 </div>
                 <div class="text-center p-4 bg-white/5 rounded-lg">
                     <i class="fas fa-mobile-alt text-2xl text-green-500 mb-2"></i>
@@ -286,12 +396,17 @@ BRI_IS_PRODUCTION=false
                 <div class="text-center p-4 bg-white/5 rounded-lg">
                     <i class="fas fa-wallet text-2xl text-blue-500 mb-2"></i>
                     <p class="text-sm">OVO</p>
-                    <p class="text-xs text-gray-500">Midtrans</p>
+                    <p class="text-xs text-gray-500">Midtrans + Tripay</p>
                 </div>
                 <div class="text-center p-4 bg-white/5 rounded-lg">
                     <i class="fas fa-money-bill-wave text-2xl text-red-400 mb-2"></i>
                     <p class="text-sm">ShopeePay</p>
-                    <p class="text-xs text-gray-500">Midtrans</p>
+                    <p class="text-xs text-gray-500">Midtrans + Tripay</p>
+                </div>
+                <div class="text-center p-4 bg-white/5 rounded-lg">
+                    <i class="fas fa-store text-2xl text-yellow-400 mb-2"></i>
+                    <p class="text-sm">Minimarket</p>
+                    <p class="text-xs text-gray-500">Tripay</p>
                 </div>
             </div>
         </div>
@@ -366,6 +481,29 @@ async function testBRI() {
     }
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-plug mr-2"></i>Test Koneksi BRI QRIS';
+}
+
+async function testTripay() {
+    const btn = document.getElementById('test-tripay-btn');
+    const result = document.getElementById('tripay-result');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Testing...';
+    result.classList.add('hidden');
+    try {
+        const response = await fetch('/api/payment-gateway/test-tripay', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await response.json();
+        result.classList.remove('hidden');
+        result.className = data.success
+            ? 'p-3 rounded-lg text-sm bg-green-500/20 border border-green-500/30 text-green-400'
+            : 'p-3 rounded-lg text-sm bg-red-500/20 border border-red-500/30 text-red-400';
+        result.innerHTML = (data.success ? '<i class="fas fa-check-circle mr-2"></i>' : '<i class="fas fa-times-circle mr-2"></i>') + data.message;
+    } catch (error) {
+        result.classList.remove('hidden');
+        result.className = 'p-3 rounded-lg text-sm bg-red-500/20 border border-red-500/30 text-red-400';
+        result.innerHTML = '<i class="fas fa-times-circle mr-2"></i>Error: ' + error.message;
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plug mr-2"></i>Test Koneksi Tripay';
 }
 </script>
 {% endblock %}

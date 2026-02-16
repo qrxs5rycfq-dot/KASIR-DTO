@@ -124,13 +124,14 @@ def api_create_order():
         db.session.add(payment)
         db.session.commit()
         
-        # Create notification for new order
+        # Create notification for new order (target kasir and koki)
         total_formatted = f"{order.total:,}".replace(',', '.')
         create_notification(
             type='order_new',
             title='Pesanan Baru!',
             message=f'Order #{order.order_number} - {customer_name or "Guest"} - Rp {total_formatted}',
-            data={'order_id': order.id, 'order_number': order.order_number}
+            data={'order_id': order.id, 'order_number': order.order_number},
+            target_roles=['kasir', 'koki', 'admin', 'manager']
         )
         
         # Update table status

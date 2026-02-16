@@ -1129,6 +1129,15 @@ def admin_payment_gateway():
     # Active gateway from DB setting
     active_gateway = get_setting('active_payment_gateway', 'midtrans')
 
+    # Tripay config
+    tripay_api_key = os.environ.get('TRIPAY_API_KEY', '')
+    tripay_private_key = os.environ.get('TRIPAY_PRIVATE_KEY', '')
+    tripay_merchant_code = os.environ.get('TRIPAY_MERCHANT_CODE', '')
+    tripay_is_production = os.environ.get('TRIPAY_IS_PRODUCTION', 'false').lower() == 'true'
+
+    masked_tripay_api_key = tripay_api_key[:8] + '****' + tripay_api_key[-4:] if len(tripay_api_key) > 12 else ('****' if tripay_api_key else '')
+    masked_tripay_private_key = tripay_private_key[:4] + '****' if len(tripay_private_key) > 4 else ('****' if tripay_private_key else '')
+
     return render_template('admin/payment_gateway.html',
                          masked_server_key=masked_server_key,
                          masked_client_key=masked_client_key,
@@ -1141,6 +1150,11 @@ def admin_payment_gateway():
                          bri_is_production=bri_is_production,
                          bri_is_configured=bool(bri_client_id and bri_client_secret and bri_merchant_id),
                          bri_private_key_path=bri_private_key_path,
+                         tripay_api_key=masked_tripay_api_key,
+                         tripay_private_key=masked_tripay_private_key,
+                         tripay_merchant_code=tripay_merchant_code,
+                         tripay_is_production=tripay_is_production,
+                         tripay_is_configured=bool(tripay_api_key and tripay_private_key and tripay_merchant_code),
                          active_gateway=active_gateway,
                          active_page='admin_payment_gateway')
 
@@ -1152,7 +1166,7 @@ def api_set_active_gateway():
     """Toggle active payment gateway between midtrans and qris_bri"""
     data = request.json
     gateway = data.get('gateway', 'midtrans')
-    if gateway not in ('midtrans', 'qris_bri'):
+    if gateway not in ('midtrans', 'qris_bri', 'tripay'):
         return jsonify({'success': False, 'message': 'Gateway tidak valid'}), 400
 
     set_setting('active_payment_gateway', gateway, 'Active payment gateway (midtrans or qris_bri)')

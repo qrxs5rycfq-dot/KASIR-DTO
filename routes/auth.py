@@ -232,3 +232,17 @@ def change_password():
         return redirect(url_for('views.dashboard'))
 
     return render_template('auth/change_password.html')
+
+
+@auth_bp.route('/api/fcm/register', methods=['POST'])
+@login_required
+def api_register_fcm_token():
+    """Register FCM token for push notifications"""
+    data = request.json
+    token = data.get('fcm_token', '').strip()
+    if not token:
+        return jsonify({'success': False, 'error': 'FCM token is required'}), 400
+
+    current_user.fcm_token = token
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'FCM token registered'})

@@ -3,6 +3,8 @@ package com.dapoerterasobor.printservice;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -17,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity;
  * SplashActivity - Splash screen with brand logo.
  * Shows for 2 seconds then launches MainActivity.
  * Also handles initial configuration check.
+ * Auto-detects tablet and uses landscape orientation.
  */
 @SuppressLint("CustomSplashScreen")
 public class SplashActivity extends AppCompatActivity {
@@ -34,6 +37,11 @@ public class SplashActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Auto-detect tablet and set landscape orientation
+        if (isTablet()) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        }
 
         // Enable edge-to-edge display
         getWindow().setFlags(
@@ -119,5 +127,10 @@ public class SplashActivity extends AppCompatActivity {
         super.onDestroy();
         isActivityActive = false;
         handler.removeCallbacksAndMessages(null);
+    }
+
+    private boolean isTablet() {
+        int screenLayout = getResources().getConfiguration().screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK;
+        return screenLayout >= Configuration.SCREENLAYOUT_SIZE_LARGE;
     }
 }
