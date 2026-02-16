@@ -1052,7 +1052,7 @@ function buildReceiptCommandsWithCopy(order, copyNum, totalCopies) {
     };
     
     // Helper: truncate text
-    const trunc = (text, max) => text.length <= max ? text : text.substring(0, max - 2) + '..';
+    const trunc = (text, max) => text.length <= max ? text : text.substring(0, max - 3) + '...';
     
     // Helper: format Rp
     const fmtRp = (num) => `Rp ${formatNumber(num || 0)}`;
@@ -1125,7 +1125,7 @@ function buildReceiptCommandsWithCopy(order, copyNum, totalCopies) {
     commands.push(...ESC_POS.ALIGN_LEFT);
     
     // ===== ITEMS =====
-    const spiceLabels = {none:'Tdk Pedas', mild:'Sedikit', medium:'Sedang', hot:'Pedas', extra_hot:'Xtra Pedas'};
+    const spiceLabels = {none:'Tdk Pedas', mild:'Sedikit', medium:'Sedang', hot:'Pedas', extra_hot:'Extra Pedas'};
     const tempLabels = {hot:'Panas', cold:'Dingin', normal:'Normal'};
     
     if (order.items && order.items.length > 0) {

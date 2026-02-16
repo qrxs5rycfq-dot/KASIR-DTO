@@ -1637,7 +1637,7 @@ def create_print_job(order):
         def truncate(text, max_len):
             if len(text) <= max_len:
                 return text
-            return text[:max_len - 2] + '..'
+            return text[:max_len - 3] + '...'
         
         # Default width (80mm). Android PrintService akan menyesuaikan saat render.
         W = 48
@@ -1680,7 +1680,7 @@ def create_print_job(order):
             data.append({"type": "text", "value": title, "align": "center", "bold": True})
             data.append({"type": "text", "value": sep_single(W), "align": "center"})
             
-            spice_labels = {'none': 'Tdk Pedas', 'mild': 'Sedikit', 'medium': 'Sedang', 'hot': 'Pedas', 'extra_hot': 'Xtra Pedas'}
+            spice_labels = {'none': 'Tdk Pedas', 'mild': 'Sedikit', 'medium': 'Sedang', 'hot': 'Pedas', 'extra_hot': 'Extra Pedas'}
             temp_labels = {'hot': 'Panas', 'cold': 'Dingin', 'normal': 'Normal'}
             
             for item in order.items:

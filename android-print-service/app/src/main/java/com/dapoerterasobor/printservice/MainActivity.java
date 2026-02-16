@@ -175,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
         spinnerPaperWidth = findViewById(R.id.spinnerPaperWidth);
 
         // Setup paper width spinner
-        String[] paperWidths = {"80mm (Standard)", "60mm (Medium)", "40mm (Kecil)"};
+        String[] paperWidths = {"80mm (Standar)", "60mm (Sedang)", "40mm (Kecil)"};
         ArrayAdapter<String> paperAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, paperWidths);
         paperAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
