@@ -390,6 +390,12 @@ public class MainActivity extends AppCompatActivity {
                 refreshWebView();
             }
         });
+
+        // Hanya aktifkan swipe refresh saat WebView sudah di posisi paling atas
+        // Ini mencegah refresh yang tidak diinginkan saat scroll ke atas
+        webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            swipeRefreshLayout.setEnabled(scrollY == 0);
+        });
     }
 
     private void refreshWebView() {

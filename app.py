@@ -1612,39 +1612,109 @@ def create_print_job(order):
         
         print(f"📝 Creating 3 print jobs for order #{order.order_number}")
         
-        # Prepare receipt data - ISI DENGAN DATA SESUNGGUHNYA
+        # Prepare receipt data - LENGKAP DENGAN SEMUA DETAIL
+        copy_labels = ['Kasir', 'Pelanggan', 'Dapur']
+        
         receipt_data = [
             {"type": "text", "value": "================================", "align": "center"},
-            {"type": "text", "value": "DAPOER TERAS OBOR", "align": "center", "bold": True, "size": "large"},
+            {"type": "text", "value": "★ DAPOER TERAS OBOR ★", "align": "center", "bold": True, "size": "large"},
+            {"type": "text", "value": "Kuliner Nusantara", "align": "center"},
             {"type": "text", "value": "================================", "align": "center"},
-            {"type": "text", "value": f"Order: #{order.order_number}", "bold": True},
-            {"type": "text", "value": f"Meja: {order.table.number if order.table else 'Takeaway'}"},
+            {"type": "text", "value": "Jl. Rw. Belong, Jakarta Barat", "align": "center"},
+            {"type": "text", "value": "Telp: 021-XXXXXXX", "align": "center"},
+            {"type": "text", "value": ""},
+            {"type": "text", "value": "--------------------------------", "align": "center"},
+            {"type": "text", "value": f"No Order : #{order.order_number}", "bold": True},
+            {"type": "text", "value": f"Tanggal  : {datetime.now().strftime('%d/%m/%Y')}"},
+            {"type": "text", "value": f"Jam      : {datetime.now().strftime('%H:%M')}"},
+            {"type": "text", "value": f"Meja     : {order.table.number if order.table else 'Takeaway'}"},
             {"type": "text", "value": f"Pelanggan: {order.customer_name or 'Guest'}"},
-            {"type": "text", "value": f"Waktu: {datetime.now().strftime('%d/%m/%Y %H:%M')}"},
+            {"type": "text", "value": f"Tipe     : {'Dine In' if order.order_type == 'dine_in' else 'Take Away'}"},
+            {"type": "text", "value": f"Kasir    : {order.user.username if order.user else '-'}"},
+            {"type": "text", "value": "--------------------------------", "align": "center"},
+            {"type": "text", "value": "DETAIL PESANAN", "align": "center", "bold": True},
             {"type": "text", "value": "--------------------------------", "align": "center"},
         ]
         
-        # Tambahkan item-item pesanan
+        # Tambahkan item-item pesanan dengan detail lengkap
         for item in order.items:
-            receipt_data.append({"type": "text", "value": f"{item.quantity}x {item.name}"})
+            item_name = item.name
+            receipt_data.append({"type": "text", "value": item_name})
+            
+            # Detail item: qty & harga
+            qty_str = f"   x{item.quantity}"
+            price_fmt = f"Rp {item.price * item.quantity:,}".replace(',', '.')
+            receipt_data.append({"type": "text", "value": f"{qty_str}           {price_fmt}", "align": "right"})
+            
+            # Tingkat kepedasan
+            if hasattr(item, 'spice_level') and item.spice_level:
+                spice_labels = {
+                    'none': 'Tidak Pedas',
+                    'mild': 'Sedikit Pedas',
+                    'medium': 'Sedang',
+                    'hot': 'Pedas',
+                    'extra_hot': 'Extra Pedas'
+                }
+                spice_text = spice_labels.get(item.spice_level, item.spice_level)
+                receipt_data.append({"type": "text", "value": f"   🌶 {spice_text}"})
+            
+            # Suhu minuman
+            if hasattr(item, 'temperature') and item.temperature:
+                temp_labels = {
+                    'hot': 'Panas',
+                    'cold': 'Dingin',
+                    'normal': 'Normal'
+                }
+                temp_text = temp_labels.get(item.temperature, item.temperature)
+                receipt_data.append({"type": "text", "value": f"   🌡 {temp_text}"})
+            
+            # Catatan item
             if item.notes:
-                receipt_data.append({"type": "text", "value": f"   Catatan: {item.notes}"})
-            if item.price > 0:
-                price_fmt = f"Rp {item.price * item.quantity:,}".replace(',', '.')
-                receipt_data.append({"type": "text", "value": f"   {price_fmt}", "align": "right"})
+                receipt_data.append({"type": "text", "value": f"   📝 {item.notes}"})
         
-        # Tambahkan total
+        # Subtotal
         receipt_data.extend([
             {"type": "text", "value": "--------------------------------", "align": "center"},
-            {"type": "text", "value": f"TOTAL: Rp {order.total:,}".replace(',', '.'), "bold": True, "align": "right"},
+            {"type": "text", "value": f"Subtotal        Rp {order.subtotal:,}".replace(',', '.'), "align": "right"},
+        ])
+        
+        # Diskon (jika ada)
+        if hasattr(order, 'discount') and order.discount and order.discount > 0:
+            discount_text = f"Diskon          -Rp {order.discount:,}".replace(',', '.')
+            receipt_data.append({"type": "text", "value": discount_text, "align": "right"})
+        
+        # Total
+        receipt_data.extend([
+            {"type": "text", "value": "================================", "align": "center"},
+            {"type": "text", "value": f"TOTAL           Rp {order.total:,}".replace(',', '.'), "bold": True, "align": "right", "size": "large"},
             {"type": "text", "value": "================================", "align": "center"},
         ])
         
+        # Info pembayaran
         if order.payment:
-            receipt_data.append({"type": "text", "value": f"Pembayaran: {order.payment.payment_method.upper()}"})
+            method_labels = {
+                'cash': 'TUNAI',
+                'online': 'ONLINE',
+                'midtrans': 'MIDTRANS',
+                'transfer': 'TRANSFER'
+            }
+            method_text = method_labels.get(order.payment.payment_method, order.payment.payment_method.upper())
+            receipt_data.append({"type": "text", "value": f"Bayar ({method_text})"})
+            receipt_data.append({"type": "text", "value": f"                Rp {order.payment.paid_amount:,}".replace(',', '.'), "align": "right"})
+            if order.payment.change_amount and order.payment.change_amount > 0:
+                receipt_data.append({"type": "text", "value": f"Kembalian        Rp {order.payment.change_amount:,}".replace(',', '.'), "align": "right"})
         
-        receipt_data.append({"type": "text", "value": ""})
-        receipt_data.append({"type": "cut"})
+        receipt_data.extend([
+            {"type": "text", "value": "--------------------------------", "align": "center"},
+            {"type": "text", "value": ""},
+            {"type": "text", "value": "★ TERIMA KASIH ★", "align": "center", "bold": True},
+            {"type": "text", "value": "Atas Kunjungan Anda", "align": "center"},
+            {"type": "text", "value": "Selamat Menikmati Hidangan", "align": "center"},
+            {"type": "text", "value": ""},
+            {"type": "text", "value": "~ Dapoer Teras Obor ~", "align": "center"},
+            {"type": "text", "value": ""},
+            {"type": "cut"},
+        ])
         
         # Serialize ke JSON
         receipt_data_json = json.dumps(receipt_data)

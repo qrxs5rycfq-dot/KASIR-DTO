@@ -69,7 +69,7 @@
         
         <!-- Menu Grid -->
         <div class="flex-1 overflow-y-auto p-2 md:p-4">
-            <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
+            <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 md:gap-3 lg:gap-4">
                 {% for item in menu_items %}
                 <div class="menu-item menu-card glass-card rounded-2xl overflow-hidden cursor-pointer" 
                      data-id="{{ item.id }}"
@@ -107,7 +107,7 @@
     </div>
     
     <!-- Cart Section (Right) - Hidden on mobile by default -->
-    <div id="cart-section" class="fixed inset-0 md:relative md:inset-auto w-full md:w-96 glass-dark flex flex-col z-40 transform translate-y-full md:translate-y-0 transition-transform duration-300">
+    <div id="cart-section" class="fixed inset-0 md:relative md:inset-auto w-full md:w-96 glass-dark flex flex-col z-40 transform translate-y-full md:translate-y-0 transition-transform duration-300 max-h-screen md:max-h-screen">
         <!-- Cart Header -->
         <div class="p-3 md:p-4 border-b border-white/10">
             <div class="flex items-center justify-between">
@@ -161,8 +161,8 @@
             </div>
         </div>
         
-        <!-- Cart Summary -->
-        <div class="p-4 border-t border-white/10 space-y-3">
+        <!-- Cart Summary - scrollable when content overflows -->
+        <div class="p-4 border-t border-white/10 space-y-3 overflow-y-auto" style="max-height: 50vh;">
             <div class="flex justify-between text-sm">
                 <span class="text-gray-400">Subtotal</span>
                 <span id="subtotal">Rp 0</span>

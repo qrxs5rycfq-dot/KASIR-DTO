@@ -484,7 +484,10 @@ public class PrintService extends Service {
         // Selalu cek pending print saat printer terhubung
         Log.i(TAG, "🔍 Printer connected, scheduling pending print check with retry...");
 
-        // Delay agar printer siap
+        // Proses job yang tertunda di local queue terlebih dahulu
+        processQueuedPrintJobs();
+
+        // Delay singkat lalu fetch pending prints dari server
         mainHandler.postDelayed(() -> {
             if (isPrinterConnected && !hasCheckedPendingAfterConnect) {
                 Log.i(TAG, "🔍 Checking for pending prints after printer connection");
@@ -492,8 +495,14 @@ public class PrintService extends Service {
             }
         }, PRINT_CHECK_DELAY);
 
-        // Proses job yang tertunda karena printer disconnect
-        processQueuedPrintJobs();
+        // Tambahan: cek lagi setelah 5 detik untuk memastikan semua pending terproses
+        mainHandler.postDelayed(() -> {
+            if (isPrinterConnected && isServiceRunning.get()) {
+                Log.i(TAG, "🔍 Secondary pending print check after printer connection");
+                fetchPendingPrints();
+                processQueuedPrintJobs();
+            }
+        }, 5000);
     }
 
     private void fetchPendingPrintsWithRetry(int maxRetries) {
@@ -809,6 +818,15 @@ public class PrintService extends Service {
             byte[] cutCmd = {0x1D, 0x56, 0x00};
             byte[] feedCmd = {0x1B, 0x64, 0x04};
 
+            // ESC/POS alignment commands
+            byte[] alignLeft = {0x1B, 0x61, 0x00};
+            byte[] alignCenter = {0x1B, 0x61, 0x01};
+            byte[] alignRight = {0x1B, 0x61, 0x02};
+            byte[] boldOn = {0x1B, 0x45, 0x01};
+            byte[] boldOff = {0x1B, 0x45, 0x00};
+            byte[] doubleHeight = {0x1B, 0x21, 0x10};
+            byte[] normalSize = {0x1B, 0x21, 0x00};
+
             sb.append(new String(initCmd, StandardCharsets.ISO_8859_1));
 
             for (int i = 0; i < data.length(); i++) {
@@ -817,20 +835,47 @@ public class PrintService extends Service {
 
                 String type = cmd.optString("type", "text");
                 String value = cmd.optString("value", "");
+                String align = cmd.optString("align", "");
+                boolean bold = cmd.optBoolean("bold", false);
+                String size = cmd.optString("size", "");
 
                 switch (type) {
                     case "text":
+                        // Handle alignment
+                        if ("center".equals(align)) {
+                            sb.append(new String(alignCenter, StandardCharsets.ISO_8859_1));
+                        } else if ("right".equals(align)) {
+                            sb.append(new String(alignRight, StandardCharsets.ISO_8859_1));
+                        }
+                        // Handle bold
+                        if (bold) {
+                            sb.append(new String(boldOn, StandardCharsets.ISO_8859_1));
+                        }
+                        // Handle size
+                        if ("large".equals(size)) {
+                            sb.append(new String(doubleHeight, StandardCharsets.ISO_8859_1));
+                        }
                         sb.append(value).append("\n");
+                        // Reset formatting
+                        if ("large".equals(size)) {
+                            sb.append(new String(normalSize, StandardCharsets.ISO_8859_1));
+                        }
+                        if (bold) {
+                            sb.append(new String(boldOff, StandardCharsets.ISO_8859_1));
+                        }
+                        if ("center".equals(align) || "right".equals(align)) {
+                            sb.append(new String(alignLeft, StandardCharsets.ISO_8859_1));
+                        }
                         break;
                     case "bold_text":
-                        sb.append(new String(new byte[]{0x1B, 0x45, 0x01}, StandardCharsets.ISO_8859_1));
+                        sb.append(new String(boldOn, StandardCharsets.ISO_8859_1));
                         sb.append(value).append("\n");
-                        sb.append(new String(new byte[]{0x1B, 0x45, 0x00}, StandardCharsets.ISO_8859_1));
+                        sb.append(new String(boldOff, StandardCharsets.ISO_8859_1));
                         break;
                     case "center":
-                        sb.append(new String(new byte[]{0x1B, 0x61, 0x01}, StandardCharsets.ISO_8859_1));
+                        sb.append(new String(alignCenter, StandardCharsets.ISO_8859_1));
                         sb.append(value).append("\n");
-                        sb.append(new String(new byte[]{0x1B, 0x61, 0x00}, StandardCharsets.ISO_8859_1));
+                        sb.append(new String(alignLeft, StandardCharsets.ISO_8859_1));
                         break;
                     case "separator":
                         sb.append("================================\n");
@@ -839,6 +884,7 @@ public class PrintService extends Service {
                         sb.append(new String(feedCmd, StandardCharsets.ISO_8859_1));
                         sb.append(new String(cutCmd, StandardCharsets.ISO_8859_1));
                         break;
+                }
                 }
             }
 
