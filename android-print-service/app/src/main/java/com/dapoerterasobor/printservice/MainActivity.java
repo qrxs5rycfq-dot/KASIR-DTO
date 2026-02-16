@@ -13,6 +13,10 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -28,7 +32,9 @@ import android.webkit.JavascriptInterface;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -72,6 +78,9 @@ public class MainActivity extends AppCompatActivity {
 
     // Timeouts
     private static final int SERVICE_STATUS_UPDATE_INTERVAL = 2000; // 2 detik
+    private static final int WEBVIEW_HEALTH_CHECK_INTERVAL = 30000; // 30 detik
+    private static final int NETWORK_RELOAD_DELAY = 2000; // 2 detik setelah network kembali
+    private static final int ERROR_AUTO_RETRY_INTERVAL = 5000; // 5 detik auto-retry saat error
 
     private WebView webView;
     private SwipeRefreshLayout swipeRefreshLayout;
@@ -98,6 +107,13 @@ public class MainActivity extends AppCompatActivity {
     // File upload handling
     private ValueCallback<Uri[]> fileUploadCallback;
     private Uri cameraImageUri;
+
+    // Network monitoring
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
+    private boolean isNetworkAvailable = true;
+    private boolean hasWebViewError = false;
+    private final Runnable autoRetryRunnable = this::retryLoadPage;
 
     // Activity result launchers
     private ActivityResultLauncher<Intent> fileChooserLauncher;
@@ -154,6 +170,12 @@ public class MainActivity extends AppCompatActivity {
 
         // Start periodic status updates
         startServiceStatusMonitor();
+
+        // Setup network change monitoring for WebView stability
+        setupNetworkMonitoring();
+
+        // Start WebView health check
+        startWebViewHealthCheck();
     }
 
     private void initializeViews() {
@@ -330,6 +352,8 @@ public class MainActivity extends AppCompatActivity {
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 Log.d(TAG, "Page loading: " + url);
+                // Cancel auto-retry saat halaman mulai dimuat
+                mainHandler.removeCallbacks(autoRetryRunnable);
             }
 
             @Override
@@ -339,16 +363,34 @@ public class MainActivity extends AppCompatActivity {
                 if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
                     swipeRefreshLayout.setRefreshing(false);
                 }
+                // Reset error state saat halaman berhasil dimuat
+                if (!url.startsWith("data:")) {
+                    hasWebViewError = false;
+                    mainHandler.removeCallbacks(autoRetryRunnable);
+                }
                 Log.d(TAG, "Page finished: " + url);
             }
 
             @Override
-            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                Log.e(TAG, "WebView error: " + errorCode + " - " + description);
-                showWebViewError(description);
-                // Hentikan indikator refresh jika terjadi error
-                if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
-                    swipeRefreshLayout.setRefreshing(false);
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                // Hanya handle error untuk main frame (bukan sub-resources)
+                if (request.isForMainFrame()) {
+                    int errorCode = error.getErrorCode();
+                    String description = error.getDescription().toString();
+                    Log.e(TAG, "WebView error: " + errorCode + " - " + description);
+                    handlePageLoadError(description);
+                }
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+                // Handle HTTP errors (502, 503, 504, dll) hanya untuk main frame
+                if (request.isForMainFrame()) {
+                    int statusCode = errorResponse.getStatusCode();
+                    if (statusCode >= 500) {
+                        Log.e(TAG, "HTTP error: " + statusCode + " for " + request.getUrl());
+                        handlePageLoadError("Server error: " + statusCode);
+                    }
                 }
             }
         });
@@ -543,11 +585,143 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void showWebViewError(String error) {
+    private void handlePageLoadError(String error) {
+        hasWebViewError = true;
+        // Hentikan refresh indicator
+        if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
+            swipeRefreshLayout.setRefreshing(false);
+        }
+        // Sanitize error message untuk HTML display
+        String safeError = error.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
+        // Tampilkan error page dengan auto-retry
+        String serverUrl = getServerUrl();
+        String safeUrl = serverUrl.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
         runOnUiThread(() -> {
-            Toast.makeText(MainActivity.this,
-                    "Error memuat halaman: " + error, Toast.LENGTH_LONG).show();
+            webView.loadDataWithBaseURL(null,
+                    "<html><body style='background:#0f172a;color:white;text-align:center;padding-top:30%;font-family:sans-serif;'>"
+                            + "<h2>⚠️ Tidak Dapat Terhubung</h2>"
+                            + "<p style='color:#94a3b8;margin:10px 20px;'>" + safeError + "</p>"
+                            + "<p style='color:#64748b;font-size:14px;'>Mencoba ulang otomatis...</p>"
+                            + "<button onclick='window.location.href=\"" + safeUrl + "\"' "
+                            + "style='margin-top:20px;padding:12px 32px;background:#3b82f6;color:white;"
+                            + "border:none;border-radius:8px;font-size:16px;cursor:pointer;'>🔄 Coba Lagi</button>"
+                            + "<p style='color:#475569;font-size:12px;margin-top:20px;'>Server: " + safeUrl + "</p>"
+                            + "</body></html>",
+                    "text/html", "UTF-8", null);
         });
+        // Schedule auto-retry
+        mainHandler.removeCallbacks(autoRetryRunnable);
+        mainHandler.postDelayed(autoRetryRunnable, ERROR_AUTO_RETRY_INTERVAL);
+    }
+
+    private void retryLoadPage() {
+        if (!hasWebViewError) return;
+        String serverUrl = getServerUrl();
+        if (serverUrl.isEmpty()) return;
+
+        Log.i(TAG, "Auto-retrying page load: " + serverUrl);
+        runOnUiThread(() -> {
+            if (webView != null) {
+                webView.loadUrl(serverUrl);
+            }
+        });
+    }
+
+    // ==================== Network Monitoring ====================
+
+    private void setupNetworkMonitoring() {
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return;
+
+        // Check initial network state
+        NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(
+                connectivityManager.getActiveNetwork());
+        isNetworkAvailable = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(@NonNull Network network) {
+                Log.i(TAG, "Network available");
+                boolean wasUnavailable = !isNetworkAvailable;
+                isNetworkAvailable = true;
+
+                if (wasUnavailable || hasWebViewError) {
+                    // Network baru tersedia atau WebView dalam state error
+                    // Tunggu sebentar agar koneksi stabil, lalu reload
+                    mainHandler.postDelayed(() -> {
+                        if (hasWebViewError && webView != null) {
+                            Log.i(TAG, "Network restored — reloading WebView");
+                            // Clear cache untuk menghindari stale connections
+                            webView.clearCache(false);
+                            retryLoadPage();
+                        }
+                    }, NETWORK_RELOAD_DELAY);
+                }
+            }
+
+            @Override
+            public void onLost(@NonNull Network network) {
+                Log.w(TAG, "Network lost");
+                isNetworkAvailable = false;
+            }
+
+            @Override
+            public void onCapabilitiesChanged(@NonNull Network network,
+                                               @NonNull NetworkCapabilities capabilities) {
+                boolean hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+
+                if (hasInternet && hasWebViewError) {
+                    // Network capabilities berubah (misal: ganti WiFi ke mobile data)
+                    mainHandler.postDelayed(() -> {
+                        if (hasWebViewError && webView != null) {
+                            Log.i(TAG, "Network capabilities changed — reloading WebView");
+                            webView.clearCache(false);
+                            retryLoadPage();
+                        }
+                    }, NETWORK_RELOAD_DELAY);
+                }
+            }
+        };
+
+        NetworkRequest networkRequest = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build();
+        connectivityManager.registerNetworkCallback(networkRequest, networkCallback);
+    }
+
+    // ==================== WebView Health Check ====================
+
+    private void startWebViewHealthCheck() {
+        mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkWebViewHealth();
+                mainHandler.postDelayed(this, WEBVIEW_HEALTH_CHECK_INTERVAL);
+            }
+        }, WEBVIEW_HEALTH_CHECK_INTERVAL);
+    }
+
+    private void checkWebViewHealth() {
+        if (webView == null || hasWebViewError) return;
+
+        String currentUrl = webView.getUrl();
+        // Skip health check jika WebView menampilkan halaman internal
+        if (currentUrl == null || currentUrl.startsWith("data:") || currentUrl.equals("about:blank")) {
+            return;
+        }
+
+        // Evaluasi JavaScript sederhana untuk cek apakah WebView masih responsif
+        webView.evaluateJavascript("(function() { return document.readyState; })()",
+                value -> {
+                    if (value == null || value.equals("null")) {
+                        Log.w(TAG, "WebView health check: unresponsive, reloading");
+                        hasWebViewError = true;
+                        retryLoadPage();
+                    }
+                });
     }
 
     private void loadWebViewUrl() {
@@ -1073,7 +1247,16 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "Error unregistering receiver: " + e.getMessage());
         }
 
-        // Remove callbacks
+        // Unregister network callback
+        if (connectivityManager != null && networkCallback != null) {
+            try {
+                connectivityManager.unregisterNetworkCallback(networkCallback);
+            } catch (Exception e) {
+                Log.e(TAG, "Error unregistering network callback: " + e.getMessage());
+            }
+        }
+
+        // Remove callbacks (termasuk auto-retry dan health check)
         mainHandler.removeCallbacksAndMessages(null);
 
         // Shutdown executor
