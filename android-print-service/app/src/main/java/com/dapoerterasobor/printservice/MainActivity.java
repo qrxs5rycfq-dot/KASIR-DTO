@@ -60,6 +60,8 @@ import androidx.core.content.FileProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.firebase.messaging.FirebaseMessaging;
+
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -183,6 +185,31 @@ public class MainActivity extends AppCompatActivity {
 
         // Start WebView health check
         startWebViewHealthCheck();
+
+        // Handle notification click intent
+        handleNotificationIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleNotificationIntent(intent);
+    }
+
+    private void handleNotificationIntent(Intent intent) {
+        if (intent != null && intent.hasExtra("target_url")) {
+            String targetUrl = intent.getStringExtra("target_url");
+            if (targetUrl != null && !targetUrl.isEmpty()) {
+                String serverUrl = getServerUrl();
+                if (!serverUrl.isEmpty()) {
+                    String fullUrl = serverUrl + (targetUrl.startsWith("/") ? targetUrl : "/" + targetUrl);
+                    Log.i(TAG, "Navigating to notification target: " + fullUrl);
+                    webView.loadUrl(fullUrl);
+                }
+                intent.removeExtra("target_url");
+            }
+        }
     }
 
     private void initializeViews() {
@@ -390,6 +417,8 @@ public class MainActivity extends AppCompatActivity {
                 if (!url.startsWith("data:")) {
                     hasWebViewError = false;
                     mainHandler.removeCallbacks(autoRetryRunnable);
+                    // Register FCM token after successful page load (user logged in)
+                    registerFcmTokenIfNeeded(url);
                 }
                 Log.d(TAG, "Page finished: " + url);
             }
@@ -787,6 +816,36 @@ public class MainActivity extends AppCompatActivity {
                 swipeRefreshLayout.setRefreshing(false);
             }
         }
+    }
+
+    private void registerFcmTokenIfNeeded(String url) {
+        // Only register FCM token on non-login pages (indicates user is logged in)
+        if (url.contains("/login") || url.contains("/register")) {
+            return;
+        }
+        String serverUrl = getServerUrl();
+        if (serverUrl.isEmpty()) return;
+
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+            if (!task.isSuccessful()) {
+                Log.w(TAG, "FCM token retrieval failed", task.getException());
+                return;
+            }
+            String token = task.getResult();
+            if (token == null || token.isEmpty()) return;
+
+            // Save locally
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            String savedToken = prefs.getString("fcm_token", "");
+            if (token.equals(savedToken)) return; // Already registered
+            prefs.edit().putString("fcm_token", token).apply();
+
+            // Send to server via JavaScript (uses existing session cookies)
+            String js = "fetch('/api/fcm/register', {method:'POST', headers:{'Content-Type':'application/json'}, "
+                    + "body:JSON.stringify({fcm_token:'" + token.replace("'", "\\'") + "'})}).catch(function(){});";
+            mainHandler.post(() -> webView.evaluateJavascript(js, null));
+            Log.i(TAG, "FCM token registered with server");
+        });
     }
 
     // JavaScript Bridge

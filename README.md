@@ -179,7 +179,7 @@ BRI_IS_PRODUCTION=false
 
 ## 🔔 Konfigurasi Push Notification (FCM)
 
-Aplikasi ini mendukung push notification ke perangkat Android menggunakan **Firebase Cloud Messaging (FCM)**. Notifikasi dikirim secara otomatis saat ada pesanan baru, berdasarkan role pengguna:
+Aplikasi ini mendukung push notification ke perangkat Android menggunakan **Firebase Cloud Messaging (FCM)** dengan **Firebase Admin SDK (HTTP v1 API)**. Notifikasi dikirim secara otomatis saat ada pesanan baru, berdasarkan role pengguna:
 
 | Role      | Notifikasi yang Diterima              |
 |-----------|---------------------------------------|
@@ -196,20 +196,28 @@ Aplikasi ini mendukung push notification ke perangkat Android menggunakan **Fire
 2. Klik **Add project** → beri nama (misal: `kasir-modern`)
 3. Ikuti wizard sampai selesai
 
-#### 2. Dapatkan Server Key
+#### 2. Download Service Account Key (JSON)
 
-1. Di Firebase Console, buka **Project Settings** (ikon ⚙️ di kiri atas)
-2. Pilih tab **Cloud Messaging**
-3. Aktifkan **Cloud Messaging API (V1)** jika belum aktif
-4. Salin **Server key** (string panjang dimulai dengan `AAAA...`)
+1. Di Firebase Console, buka **Project Settings** (ikon ⚙️)
+2. Pilih tab **Service accounts**
+3. Klik **Generate new private key** → akan terdownload file JSON
+4. Simpan file JSON di server (misal: `firebase-service-account.json`)
 
 #### 3. Tambahkan ke `.env`
 
 ```env
-FCM_SERVER_KEY=AAAAxxxxxxxx:APA91bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GOOGLE_APPLICATION_CREDENTIALS=firebase-service-account.json
 ```
 
-#### 4. Konfigurasi Android App
+> ⚠️ **Jangan commit file service account JSON ke repository!** Tambahkan ke `.gitignore`.
+
+#### 4. Install Firebase Admin SDK
+
+```bash
+pip install firebase-admin
+```
+
+#### 5. Konfigurasi Android App
 
 1. Di Firebase Console, buka **Project Settings** → tab **General**
 2. Klik **Add app** → pilih **Android**
@@ -218,9 +226,9 @@ FCM_SERVER_KEY=AAAAxxxxxxxx:APA91bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 5. Letakkan di folder `android-print-service/app/`
 6. Build ulang aplikasi Android
 
-#### 5. Registrasi Token di Android
+#### 6. Registrasi Token di Android
 
-Aplikasi Android secara otomatis mengirim FCM token ke server saat login melalui endpoint:
+Aplikasi Android **otomatis** mengirim FCM token ke server saat user berhasil login. Token dikirim melalui WebView JavaScript ke endpoint:
 
 ```
 POST /api/fcm/register
@@ -229,14 +237,18 @@ Body: { "fcm_token": "token_dari_firebase" }
 
 Token disimpan di kolom `fcm_token` pada tabel `users` dan digunakan server untuk mengirim push notification.
 
+#### 7. Klik Notifikasi
+
+Saat user mengklik notifikasi di Android, aplikasi akan langsung membuka halaman **Pesanan** (`/orders`) di WebView.
+
 ### Cara Kerja
 
 1. **Pesanan baru dibuat** → Server membuat notifikasi di database
 2. Server mencari user dengan role yang sesuai (`target_roles`) dan memiliki `fcm_token`
-3. Server mengirim push notification ke semua perangkat yang cocok via FCM HTTP API
-4. Pengiriman bersifat **best-effort** — jika gagal, notifikasi tetap tersimpan di database dan bisa dilihat di web
-
-> **Catatan**: Jika menggunakan FCM HTTP v1 API, pastikan menggunakan service account key (JSON) sebagai pengganti server key. Konfigurasi ini dapat disesuaikan di `utils.py`.
+3. Server mengirim push notification ke setiap perangkat via **Firebase Admin SDK (HTTP v1 API)**
+4. Android menampilkan notifikasi dengan judul, isi, suara, dan getar
+5. Klik notifikasi → Buka halaman pesanan di WebView
+6. Pengiriman bersifat **best-effort** — jika gagal, notifikasi tetap tersimpan di database dan bisa dilihat di web
 
 ## 📁 Struktur File
 
@@ -342,9 +354,10 @@ Lihat [ANDROID_INTEGRATION.md](ANDROID_INTEGRATION.md) untuk panduan lengkap set
 - Untuk testing, gunakan Sandbox mode (`TRIPAY_IS_PRODUCTION=false`)
 
 ### FCM Notification Tidak Terkirim
-- Pastikan `FCM_SERVER_KEY` sudah diisi di `.env`
+- Pastikan file **service account JSON** sudah ada dan path-nya benar di `.env` (`GOOGLE_APPLICATION_CREDENTIALS`)
+- Pastikan `firebase-admin` sudah diinstall (`pip install firebase-admin`)
 - Pastikan file `google-services.json` ada di `android-print-service/app/`
-- Pastikan user sudah login dari Android app (token otomatis terdaftar)
+- Pastikan user sudah login dari Android app (FCM token otomatis terdaftar)
 - Cek log server untuk error FCM (pengiriman bersifat best-effort)
 
 ### Port 8000 sudah digunakan

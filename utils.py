@@ -194,14 +194,28 @@ def create_notification(type, title, message, user_id=None, data=None, target_ro
 
 
 def _send_fcm_push(title, message, data=None, user_id=None, target_roles=None):
-    """Send FCM push notification to specific user or users by role"""
+    """Send FCM push notification using Firebase Admin SDK with service account JSON"""
     from models import User, Role
-    import json
-    import requests as req
+    import logging
+    logger = logging.getLogger(__name__)
 
-    fcm_server_key = os.environ.get('FCM_SERVER_KEY', '')
-    if not fcm_server_key:
-        return  # FCM not configured
+    # Initialize Firebase Admin SDK if not already initialized
+    try:
+        import firebase_admin
+        from firebase_admin import credentials, messaging
+    except ImportError:
+        logger.warning('firebase-admin not installed, skipping FCM push')
+        return
+
+    cred_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
+    if not cred_path or not os.path.exists(cred_path):
+        logger.debug('Firebase service account JSON not configured, skipping FCM')
+        return
+
+    # Initialize Firebase app (once)
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(cred_path)
+        firebase_admin.initialize_app(cred)
 
     # Collect FCM tokens
     tokens = []
@@ -210,7 +224,6 @@ def _send_fcm_push(title, message, data=None, user_id=None, target_roles=None):
         if user and user.fcm_token:
             tokens.append(user.fcm_token)
     elif target_roles:
-        # Send to all users with specific roles
         users = User.query.filter(
             User.is_active == True,
             User.fcm_token.isnot(None),
@@ -220,7 +233,6 @@ def _send_fcm_push(title, message, data=None, user_id=None, target_roles=None):
             if any(r.name in target_roles for r in u.roles):
                 tokens.append(u.fcm_token)
     else:
-        # Broadcast to all active users with FCM tokens
         users = User.query.filter(
             User.is_active == True,
             User.fcm_token.isnot(None),
@@ -231,36 +243,28 @@ def _send_fcm_push(title, message, data=None, user_id=None, target_roles=None):
     if not tokens:
         return
 
-    headers = {
-        'Authorization': f'key={fcm_server_key}',
-        'Content-Type': 'application/json'
-    }
+    # Build notification data
+    notification_data = dict(data) if data else {}
+    notification_data['url'] = notification_data.get('url', '/orders')
 
-    # Send to each token (FCM v1 legacy API supports registration_ids for batch)
-    payload = {
-        'registration_ids': tokens[:1000],  # FCM limit: 1000 per request
-        'notification': {
-            'title': title,
-            'body': message,
-            'sound': 'default',
-            'click_action': 'OPEN_ACTIVITY'
-        },
-        'data': data or {},
-        'priority': 'high'
-    }
-
-    try:
-        resp = req.post(
-            'https://fcm.googleapis.com/fcm/send',
-            json=payload,
-            headers=headers,
-            timeout=10
-        )
-        if resp.status_code != 200:
-            import logging
-            logging.getLogger(__name__).warning(f'FCM send failed: HTTP {resp.status_code}')
-    except Exception:
-        pass
+    # Send to each token using Firebase Admin SDK (v1 API)
+    for token in tokens:
+        try:
+            msg = messaging.Message(
+                notification=messaging.Notification(title=title, body=message),
+                data={k: str(v) for k, v in notification_data.items()},
+                token=token,
+                android=messaging.AndroidConfig(
+                    priority='high',
+                    notification=messaging.AndroidNotification(
+                        sound='default',
+                        click_action='OPEN_ACTIVITY'
+                    )
+                )
+            )
+            messaging.send(msg)
+        except Exception as e:
+            logger.warning(f'FCM send to token failed: {e}')
 
 
 def validate_token(token):
