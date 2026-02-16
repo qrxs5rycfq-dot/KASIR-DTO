@@ -94,7 +94,7 @@
         android:clickable="true"
         android:focusable="true" />
 
-    <!-- Layer 3: Settings panel (floating card, right-center, above WebView) -->
+    <!-- Layer 4: Settings panel (floating card, right-center, above WebView) -->
     <ScrollView
         android:id="@+id/settingsPanel"
         android:layout_width="@dimen/settings_panel_width"
