@@ -19,13 +19,13 @@
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <!-- Layer 2: Floating status bar (compact, top-left) -->
+    <!-- Layer 2: Floating status bar (compact, top-right to avoid covering sidebar toggle) -->
     <LinearLayout
         android:id="@+id/floatingStatusBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="12dp"
+        android:layout_gravity="top|end"
+        android:layout_marginEnd="12dp"
         android:layout_marginTop="12dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
@@ -84,26 +84,29 @@
         android:visibility="gone"
         tools:ignore="SmallSp" />
 
-    <!-- Layer 3: Settings panel backdrop (semi-transparent) -->
+    <!-- Layer 3: Tap-to-close backdrop (invisible, behind settings panel) -->
     <View
         android:id="@+id/settingsBackdrop"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#80000000"
+        android:background="@android:color/transparent"
         android:visibility="gone"
         android:clickable="true"
         android:focusable="true" />
 
-    <!-- Layer 4: Settings panel (slide-in overlay from right) -->
+    <!-- Layer 3: Settings panel (floating card, right-center, above WebView) -->
     <ScrollView
         android:id="@+id/settingsPanel"
         android:layout_width="@dimen/settings_panel_width"
-        android:layout_height="match_parent"
-        android:layout_gravity="end"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
         android:background="@drawable/settings_panel_background"
         android:visibility="gone"
-        android:fillViewport="true"
-        android:elevation="16dp"
+        android:fillViewport="false"
+        android:elevation="24dp"
         android:translationX="@dimen/settings_panel_slide_offset">
 
         <LinearLayout

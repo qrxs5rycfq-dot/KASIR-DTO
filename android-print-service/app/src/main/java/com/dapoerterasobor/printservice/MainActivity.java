@@ -871,10 +871,8 @@ public class MainActivity extends AppCompatActivity {
         loadSettings();
         loadPairedPrinters();
 
-        // Show backdrop with fade-in
+        // Show transparent backdrop for tap-to-close
         settingsBackdrop.setVisibility(View.VISIBLE);
-        settingsBackdrop.setAlpha(0f);
-        settingsBackdrop.animate().alpha(1f).setDuration(200).start();
 
         // Slide panel in from right
         settingsPanel.setVisibility(View.VISIBLE);
@@ -889,10 +887,8 @@ public class MainActivity extends AppCompatActivity {
         settingsVisible = false;
         float slideOffset = getResources().getDimension(R.dimen.settings_panel_slide_offset);
 
-        // Fade out backdrop
-        settingsBackdrop.animate().alpha(0f).setDuration(200).withEndAction(() ->
-                settingsBackdrop.setVisibility(View.GONE)
-        ).start();
+        // Hide backdrop
+        settingsBackdrop.setVisibility(View.GONE);
 
         // Slide panel out to right
         settingsPanel.animate()
