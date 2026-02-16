@@ -2,7 +2,7 @@
 <html lang="id" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Dapoer Teras Obor{% endblock %}</title>
     
@@ -71,11 +71,21 @@
     
     <!-- Custom Styles -->
     <style>
+        html {
+            overscroll-behavior: none;
+        }
+        
         body {
             font-family: 'Inter', system-ui, sans-serif;
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
             min-height: 100vh;
             overscroll-behavior-y: contain;
+        }
+        
+        /* Prevent scroll leaking from inner scrollable sections */
+        .scroll-contain {
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
         }
         
         .glass {
