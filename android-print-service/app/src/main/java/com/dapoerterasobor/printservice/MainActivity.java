@@ -112,8 +112,10 @@ public class MainActivity extends AppCompatActivity {
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     private boolean isNetworkAvailable = true;
+    private boolean isNetworkValidated = false;
     private boolean hasWebViewError = false;
     private final Runnable autoRetryRunnable = this::retryLoadPage;
+    private final Runnable networkReloadRunnable = this::reloadWebViewAfterNetworkChange;
 
     // Activity result launchers
     private ActivityResultLauncher<Intent> fileChooserLauncher;
@@ -596,6 +598,10 @@ public class MainActivity extends AppCompatActivity {
                 .replace("\"", "&quot;").replace("'", "&#39;");
         // Tampilkan error page dengan auto-retry
         String serverUrl = getServerUrl();
+        // Validasi URL scheme untuk keamanan
+        if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
+            serverUrl = "http://" + serverUrl;
+        }
         String safeUrl = serverUrl.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 .replace("\"", "&quot;").replace("'", "&#39;");
         runOnUiThread(() -> {
@@ -639,6 +645,7 @@ public class MainActivity extends AppCompatActivity {
         NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(
                 connectivityManager.getActiveNetwork());
         isNetworkAvailable = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        isNetworkValidated = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
 
         networkCallback = new ConnectivityManager.NetworkCallback() {
             @Override
@@ -648,16 +655,7 @@ public class MainActivity extends AppCompatActivity {
                 isNetworkAvailable = true;
 
                 if (wasUnavailable || hasWebViewError) {
-                    // Network baru tersedia atau WebView dalam state error
-                    // Tunggu sebentar agar koneksi stabil, lalu reload
-                    mainHandler.postDelayed(() -> {
-                        if (hasWebViewError && webView != null) {
-                            Log.i(TAG, "Network restored — reloading WebView");
-                            // Clear cache untuk menghindari stale connections
-                            webView.clearCache(false);
-                            retryLoadPage();
-                        }
-                    }, NETWORK_RELOAD_DELAY);
+                    scheduleNetworkReload();
                 }
             }
 
@@ -665,23 +663,20 @@ public class MainActivity extends AppCompatActivity {
             public void onLost(@NonNull Network network) {
                 Log.w(TAG, "Network lost");
                 isNetworkAvailable = false;
+                isNetworkValidated = false;
             }
 
             @Override
             public void onCapabilitiesChanged(@NonNull Network network,
                                                @NonNull NetworkCapabilities capabilities) {
-                boolean hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                boolean nowValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                         && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+                boolean wasNotValidated = !isNetworkValidated;
+                isNetworkValidated = nowValidated;
 
-                if (hasInternet && hasWebViewError) {
-                    // Network capabilities berubah (misal: ganti WiFi ke mobile data)
-                    mainHandler.postDelayed(() -> {
-                        if (hasWebViewError && webView != null) {
-                            Log.i(TAG, "Network capabilities changed — reloading WebView");
-                            webView.clearCache(false);
-                            retryLoadPage();
-                        }
-                    }, NETWORK_RELOAD_DELAY);
+                // Hanya reload saat transisi dari non-validated ke validated
+                if (nowValidated && wasNotValidated && hasWebViewError) {
+                    scheduleNetworkReload();
                 }
             }
         };
@@ -690,6 +685,20 @@ public class MainActivity extends AppCompatActivity {
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build();
         connectivityManager.registerNetworkCallback(networkRequest, networkCallback);
+    }
+
+    private void scheduleNetworkReload() {
+        // Hapus reload sebelumnya untuk menghindari duplikasi
+        mainHandler.removeCallbacks(networkReloadRunnable);
+        mainHandler.postDelayed(networkReloadRunnable, NETWORK_RELOAD_DELAY);
+    }
+
+    private void reloadWebViewAfterNetworkChange() {
+        if (hasWebViewError && webView != null) {
+            Log.i(TAG, "Network restored — reloading WebView");
+            webView.clearCache(false);
+            retryLoadPage();
+        }
     }
 
     // ==================== WebView Health Check ====================
