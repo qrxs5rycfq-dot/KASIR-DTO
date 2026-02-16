@@ -95,11 +95,11 @@ def role_required(*roles):
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
                 from flask import redirect, url_for
-                return redirect(url_for('login'))
+                return redirect(url_for('auth.login'))
             if not any(current_user.has_role(role) for role in roles):
                 from flask import redirect, url_for, flash
                 flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
-                return redirect(url_for('dashboard'))
+                return redirect(url_for('views.dashboard'))
             return f(*args, **kwargs)
         return decorated_function
     return decorator

@@ -74,7 +74,7 @@ def api_auth_token():
 @auth_bp.route('/')
 def index():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('views.dashboard'))
     return redirect(url_for('auth.login'))
 
 
@@ -85,7 +85,7 @@ def login():
         # Check if force password change is required
         if hasattr(current_user, 'force_password_change') and current_user.force_password_change:
             return redirect(url_for('auth.change_password'))
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('views.dashboard'))
 
     if request.method == 'POST':
         username = request.form.get('username')
@@ -123,9 +123,9 @@ def login():
 
             # Redirect koki to kitchen display
             if user.has_role('koki') and not user.has_role('admin'):
-                return redirect(next_page or url_for('kitchen'))
+                return redirect(next_page or url_for('views.kitchen'))
 
-            return redirect(next_page or url_for('dashboard'))
+            return redirect(next_page or url_for('views.dashboard'))
         else:
             flash('Username atau password salah!', 'danger')
 
@@ -135,7 +135,7 @@ def login():
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('views.dashboard'))
 
     if request.method == 'POST':
         username = request.form.get('username')
@@ -229,6 +229,6 @@ def change_password():
         db.session.commit()
 
         flash('Password berhasil diubah!', 'success')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('views.dashboard'))
 
     return render_template('auth/change_password.html')
