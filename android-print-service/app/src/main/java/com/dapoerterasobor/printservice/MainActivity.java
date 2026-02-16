@@ -379,61 +379,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupSwipeRefresh() {
-        // Konfigurasi warna indikator refresh
-        swipeRefreshLayout.setColorSchemeColors(
-                getResources().getColor(android.R.color.holo_blue_dark),
-                getResources().getColor(android.R.color.holo_green_dark),
-                getResources().getColor(android.R.color.holo_orange_dark),
-                getResources().getColor(android.R.color.holo_red_dark)
-        );
-
-        // Set background indikator
-        swipeRefreshLayout.setProgressBackgroundColorSchemeColor(
-                getResources().getColor(android.R.color.white)
-        );
-
-        // Set listener untuk swipe refresh
-        swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
-            @Override
-            public void onRefresh() {
-                refreshWebView();
-            }
-        });
-
-        // Hanya aktifkan swipe refresh saat WebView sudah di posisi paling atas
-        // canScrollVertically(-1) returns false jika tidak bisa scroll ke atas lagi
-        webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-            swipeRefreshLayout.setEnabled(!webView.canScrollVertically(-1));
-        });
-    }
-
-    private void refreshWebView() {
-        String currentUrl = webView.getUrl();
-
-        if (currentUrl != null && !currentUrl.equals("about:blank")) {
-            // Refresh halaman saat ini
-            webView.reload();
-        } else {
-            // Jika tidak ada URL, load URL dari settings
-            String serverUrl = getServerUrl();
-            if (!serverUrl.isEmpty()) {
-                webView.loadUrl(serverUrl);
-            } else {
-                // Jika tidak ada URL, tampilkan pesan
-                showToast("Tidak ada URL untuk direfresh");
-                swipeRefreshLayout.setRefreshing(false);
-            }
-        }
-
-        // Set timeout untuk memastikan indikator hilang (max 10 detik)
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (swipeRefreshLayout.isRefreshing()) {
-                    swipeRefreshLayout.setRefreshing(false);
-                }
-            }
-        }, 10000);
+        // Nonaktifkan swipe refresh sepenuhnya untuk menghindari konflik dengan scroll
+        swipeRefreshLayout.setEnabled(false);
     }
 
     private boolean handleFileChooser(ValueCallback<Uri[]> filePathCallback,

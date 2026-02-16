@@ -176,14 +176,17 @@
 function toggleMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
+    const menuBtn = document.getElementById('mobile-menu-btn');
     const isOpen = !sidebar.classList.contains('-translate-x-full');
     
     if (isOpen) {
         sidebar.classList.add('-translate-x-full');
         overlay.classList.add('hidden');
+        if (menuBtn) menuBtn.classList.remove('hidden');
     } else {
         sidebar.classList.remove('-translate-x-full');
         overlay.classList.remove('hidden');
+        if (menuBtn) menuBtn.classList.add('hidden');
     }
 }
 
