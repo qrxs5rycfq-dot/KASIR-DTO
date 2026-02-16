@@ -81,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
     private EditText editPassword;
     private EditText editLanAddress;
     private Spinner spinnerPrinter;
+    private Spinner spinnerPaperWidth;
     private TextView txtServiceStatus;
     private TextView txtPrintStats;
     private Button btnToggleService;
@@ -171,6 +172,14 @@ public class MainActivity extends AppCompatActivity {
         radioPrinterType = findViewById(R.id.radioPrinterType);
         sectionBluetooth = findViewById(R.id.sectionBluetooth);
         sectionLan = findViewById(R.id.sectionLan);
+        spinnerPaperWidth = findViewById(R.id.spinnerPaperWidth);
+
+        // Setup paper width spinner
+        String[] paperWidths = {"80mm (Standard)", "60mm (Medium)", "40mm (Kecil)"};
+        ArrayAdapter<String> paperAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, paperWidths);
+        paperAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerPaperWidth.setAdapter(paperAdapter);
 
         // Sembunyikan stats jika belum ada data
         if (txtPrintStats != null) {
@@ -712,6 +721,14 @@ public class MainActivity extends AppCompatActivity {
             sectionBluetooth.setVisibility(View.VISIBLE);
             sectionLan.setVisibility(View.GONE);
         }
+
+        // Load paper width setting
+        int paperWidth = prefs.getInt("paper_width", 80);
+        switch (paperWidth) {
+            case 60: spinnerPaperWidth.setSelection(1); break;
+            case 40: spinnerPaperWidth.setSelection(2); break;
+            default: spinnerPaperWidth.setSelection(0); break; // 80mm
+        }
     }
 
     private void saveSettings() {
@@ -742,6 +759,16 @@ public class MainActivity extends AppCompatActivity {
 
         boolean isLan = radioPrinterType.getCheckedRadioButtonId() == R.id.radioLan;
         editor.putString("printer_type", isLan ? "lan" : "bluetooth");
+
+        // Save paper width
+        int paperWidthSelection = spinnerPaperWidth.getSelectedItemPosition();
+        int paperWidth;
+        switch (paperWidthSelection) {
+            case 1: paperWidth = 60; break;
+            case 2: paperWidth = 40; break;
+            default: paperWidth = 80; break;
+        }
+        editor.putInt("paper_width", paperWidth);
 
         if (isLan) {
             String lanAddress = editLanAddress.getText().toString().trim();

@@ -419,6 +419,44 @@
                     android:lineSpacingExtra="2dp" />
             </LinearLayout>
 
+            <!-- Card: Paper Width Setting -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📄 UKURAN KERTAS"
+                    android:textColor="#60a5fa"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05"
+                    android:layout_marginBottom="12dp" />
+
+                <Spinner
+                    android:id="@+id/spinnerPaperWidth"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@drawable/spinner_background"
+                    android:paddingHorizontal="12dp"
+                    android:popupBackground="#1e293b"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 Pilih ukuran kertas sesuai printer (80mm, 60mm, atau 40mm)"
+                    android:textColor="#64748b"
+                    android:textSize="11sp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
             <!-- Save Button dengan Desain Menarik -->
             <Button
                 android:id="@+id/btnSave"

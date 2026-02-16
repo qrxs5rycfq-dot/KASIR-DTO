@@ -813,6 +813,17 @@ public class PrintService extends Service {
             }
             return bytes;
         } else {
+            // Deteksi paper width dari settings
+            // 80mm = 48 chars, 60mm = 35 chars, 40mm = 24 chars
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            int paperWidth = prefs.getInt("paper_width", 80);
+            int charWidth;
+            switch (paperWidth) {
+                case 40: charWidth = 24; break;
+                case 60: charWidth = 35; break;
+                default: charWidth = 48; break;  // 80mm default
+            }
+
             StringBuilder sb = new StringBuilder();
             byte[] initCmd = {0x1B, 0x40};
             byte[] cutCmd = {0x1D, 0x56, 0x00};
@@ -841,6 +852,12 @@ public class PrintService extends Service {
 
                 switch (type) {
                     case "text":
+                        // Sesuaikan separator dengan paper width
+                        if (isAllSameChar(value, '=')) {
+                            value = repeatChar('=', charWidth);
+                        } else if (isAllSameChar(value, '-')) {
+                            value = repeatChar('-', charWidth);
+                        }
                         // Handle alignment
                         if ("center".equals(align)) {
                             sb.append(new String(alignCenter, StandardCharsets.ISO_8859_1));
@@ -878,18 +895,39 @@ public class PrintService extends Service {
                         sb.append(new String(alignLeft, StandardCharsets.ISO_8859_1));
                         break;
                     case "separator":
-                        sb.append("================================\n");
+                        sb.append(repeatChar('=', charWidth)).append("\n");
                         break;
                     case "cut":
                         sb.append(new String(feedCmd, StandardCharsets.ISO_8859_1));
                         sb.append(new String(cutCmd, StandardCharsets.ISO_8859_1));
                         break;
                 }
-                }
             }
 
             return sb.toString().getBytes(StandardCharsets.ISO_8859_1);
         }
+    }
+
+    /**
+     * Cek apakah string hanya berisi karakter yang sama (untuk deteksi separator)
+     */
+    private boolean isAllSameChar(String s, char c) {
+        if (s == null || s.isEmpty()) return false;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) != c) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Buat string dengan karakter yang diulang sejumlah n kali
+     */
+    private String repeatChar(char c, int n) {
+        StringBuilder sb = new StringBuilder(n);
+        for (int i = 0; i < n; i++) {
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
     private void reportPrintSuccess(int printId) {
