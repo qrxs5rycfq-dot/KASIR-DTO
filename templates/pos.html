@@ -1,0 +1,1381 @@
+{% extends "base.html" %}
+
+{% block title %}Kasir / POS - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<!-- Mobile Cart Toggle Button -->
+<button id="mobile-cart-btn" onclick="toggleMobileCart()" class="md:hidden fixed bottom-4 right-4 z-50 w-14 h-14 bg-primary-500 rounded-full flex items-center justify-center text-white shadow-lg">
+    <i class="fas fa-shopping-cart"></i>
+    <span id="mobile-cart-count" class="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold">0</span>
+</button>
+
+<div class="flex flex-col md:flex-row h-screen overflow-hidden">
+    <!-- Menu Section (Left) -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Header -->
+        <header class="glass-dark p-3 md:p-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <a href="{{ url_for('dashboard') }}" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <div class="flex items-center space-x-2 md:space-x-3">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Dapoer Teras Obor" class="w-8 h-8 md:w-10 md:h-10 rounded-xl object-contain">
+                    <div>
+                        <h1 class="text-base md:text-lg font-display font-bold">Point of Sale</h1>
+                        <p class="text-gray-400 text-xs hidden md:block">{{ now.strftime('%d %B %Y') }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Search -->
+            <div class="flex-1 max-w-xs md:max-w-md mx-2 md:mx-8">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <input type="text" id="search-menu" placeholder="Cari menu..." 
+                           class="w-full bg-white/5 border border-white/10 rounded-xl py-2 md:py-2.5 pl-9 md:pl-12 pr-3 md:pr-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-sm">
+                </div>
+            </div>
+            
+            <!-- User Info & Printer Station Link -->
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <!-- Link to Printer Station -->
+                <a href="{{ url_for('printer_station') }}" target="_blank"
+                        class="flex items-center space-x-2 px-2 md:px-3 py-2 rounded-xl bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition text-sm"
+                        title="Buka Printer Station di tab baru">
+                    <i class="fas fa-print"></i>
+                    <span class="hidden lg:inline">Printer Station</span>
+                </a>
+                
+                <div class="hidden md:flex items-center space-x-3">
+                    <span class="text-sm text-gray-400">{{ current_user.full_name or current_user.username }}</span>
+                    <div class="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center">
+                        <i class="fas fa-user text-primary-400 text-sm"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Categories -->
+        <div class="glass p-2 md:p-4 flex items-center space-x-2 md:space-x-3 overflow-x-auto">
+            <button onclick="filterCategory('all')" class="category-btn active px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-primary-500/20 text-primary-400 font-medium whitespace-nowrap transition hover:bg-primary-500/30 text-sm" data-category="all">
+                <i class="fas fa-th-large mr-1 md:mr-2"></i>Semua
+            </button>
+            {% for category in categories %}
+            <button onclick="filterCategory({{ category.id }})" class="category-btn px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-white/5 text-gray-400 font-medium whitespace-nowrap transition hover:bg-white/10 text-sm" data-category="{{ category.id }}">
+                <i class="{{ category.icon or 'fas fa-utensils' }} mr-1 md:mr-2"></i>{{ category.name }}
+            </button>
+            {% endfor %}
+        </div>
+        
+        <!-- Menu Grid -->
+        <div class="flex-1 overflow-y-auto p-2 md:p-4">
+            <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
+                {% for item in menu_items %}
+                <div class="menu-item menu-card glass-card rounded-2xl overflow-hidden cursor-pointer" 
+                     data-id="{{ item.id }}"
+                     data-name="{{ item.name }}"
+                     data-code="{{ item.code or '' }}"
+                     data-price="{{ item.price }}"
+                     data-category="{{ item.category_id }}"
+                     data-spicy="{{ item.has_spicy_option|lower }}"
+                     data-temp="{{ item.has_temperature_option|lower }}"
+                     onclick="addToCart({{ item.id }}, '{{ item.name }}', {{ item.price }}, {{ item.has_spicy_option|lower }}, {{ item.has_temperature_option|lower }})">
+                    <div class="relative">
+                        <img src="{{ item.image }}" alt="{{ item.name }}" class="w-full h-28 object-cover">
+                        {% if item.is_popular %}
+                        <span class="absolute top-2 left-2 px-2 py-0.5 bg-yellow-500 text-yellow-900 text-xs font-bold rounded-full">
+                            <i class="fas fa-fire mr-1"></i>Popular
+                        </span>
+                        {% endif %}
+                        {% if item.has_spicy_option %}
+                        <span class="absolute top-2 right-2 w-6 h-6 bg-red-500/80 rounded-full flex items-center justify-center">
+                            <i class="fas fa-pepper-hot text-white text-xs"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="p-3">
+                        <h3 class="font-medium text-sm line-clamp-2 h-10">{{ item.name }}</h3>
+                        <p class="text-primary-400 font-bold mt-1">{{ item.price|format_currency }}</p>
+                        {% if item.code %}
+                        <p class="text-gray-500 text-xs">Kode: {{ item.code }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cart Section (Right) - Hidden on mobile by default -->
+    <div id="cart-section" class="fixed inset-0 md:relative md:inset-auto w-full md:w-96 glass-dark flex flex-col z-40 transform translate-y-full md:translate-y-0 transition-transform duration-300">
+        <!-- Cart Header -->
+        <div class="p-3 md:p-4 border-b border-white/10">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold">Keranjang</h2>
+                <div class="flex items-center space-x-3">
+                    <button onclick="clearCart()" class="text-red-400 hover:text-red-300 text-sm">
+                        <i class="fas fa-trash mr-1"></i>Hapus
+                    </button>
+                    <!-- Close button for mobile -->
+                    <button onclick="toggleMobileCart()" class="md:hidden text-gray-400 hover:text-white">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Table & Order Type Selection -->
+            <div class="grid grid-cols-2 gap-3 mt-4">
+                <div>
+                    <label class="text-xs text-gray-400 mb-1 block">Tipe Pesanan</label>
+                    <select id="order-type" class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                        <option value="dine_in">Dine In</option>
+                        <option value="takeaway">Take Away</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 mb-1 block">Nomor Meja</label>
+                    <select id="table-select" class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                        <option value="">Pilih Meja</option>
+                        {% for table in tables %}
+                        <option value="{{ table.id }}" {% if table.status == 'occupied' %}disabled{% endif %}>
+                            Meja {{ table.number }} {% if table.status == 'occupied' %}(Terisi){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <label class="text-xs text-gray-400 mb-1 block">Nama Pelanggan</label>
+                <input type="text" id="customer-name" placeholder="Optional" 
+                       class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+            </div>
+        </div>
+        
+        <!-- Cart Items -->
+        <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div id="empty-cart" class="text-center py-12 text-gray-500">
+                <i class="fas fa-shopping-cart text-4xl mb-3"></i>
+                <p>Keranjang kosong</p>
+                <p class="text-sm">Klik menu untuk menambahkan</p>
+            </div>
+        </div>
+        
+        <!-- Cart Summary -->
+        <div class="p-4 border-t border-white/10 space-y-3">
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-400">Subtotal</span>
+                <span id="subtotal">Rp 0</span>
+            </div>
+            
+            <!-- Discount/Promo Section -->
+            <div class="border border-dashed border-white/20 rounded-lg p-2" id="promo-section">
+                <div class="flex space-x-2">
+                    <input type="text" id="promo-code" placeholder="Kode promo" 
+                           class="flex-1 bg-white/5 border border-white/10 rounded-lg py-1.5 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50 uppercase"
+                           oninput="this.value = this.value.toUpperCase()">
+                    <button onclick="applyPromo()" class="px-3 py-1.5 rounded-lg bg-primary-500/20 text-primary-400 text-sm hover:bg-primary-500/30">
+                        <i class="fas fa-tag mr-1"></i>Apply
+                    </button>
+                </div>
+                <div id="promo-result" class="hidden mt-2 p-2 rounded-lg text-sm">
+                    <!-- Promo result will appear here -->
+                </div>
+            </div>
+            
+            <div class="flex justify-between text-sm text-green-400" id="discount-row" style="display: none;">
+                <span>Diskon <span id="discount-name"></span></span>
+                <span id="discount-amount">- Rp 0</span>
+            </div>
+            
+            <div class="flex justify-between text-lg font-bold pt-3 border-t border-white/10">
+                <span>Total</span>
+                <span id="total" class="text-primary-400">Rp 0</span>
+            </div>
+            
+            <!-- Payment Section -->
+            <div class="pt-3 border-t border-white/10">
+                <label class="text-xs text-gray-400 mb-1 block">Metode Pembayaran</label>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <button onclick="setPaymentMethod('cash')" class="payment-method-btn active px-3 py-2 rounded-lg bg-primary-500/20 text-primary-400 text-sm font-medium border border-primary-500/30" data-method="cash">
+                        <i class="fas fa-money-bill mr-2"></i>Cash
+                    </button>
+                    <button onclick="setPaymentMethod('online')" class="payment-method-btn px-3 py-2 rounded-lg bg-white/5 text-gray-400 text-sm font-medium border border-white/10" data-method="online">
+                        <i class="fas fa-credit-card mr-2"></i>Online
+                    </button>
+                </div>
+                
+                <div id="cash-payment" class="space-y-2">
+                    <label class="text-xs text-gray-400">Jumlah Bayar</label>
+                    <input type="number" id="paid-amount" placeholder="Masukkan jumlah" 
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                           oninput="calculateChange()">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Kembalian</span>
+                        <span id="change" class="text-green-400">Rp 0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Cash Buttons -->
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="setQuickCash(50000)" class="py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10">50rb</button>
+                <button onclick="setQuickCash(100000)" class="py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10">100rb</button>
+                <button onclick="setQuickCash(150000)" class="py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10">150rb</button>
+                <button onclick="setQuickCash(200000)" class="py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10">200rb</button>
+            </div>
+            
+            <!-- Checkout Button -->
+            <button onclick="processCheckout()" id="checkout-btn" disabled
+                    class="w-full btn-success py-3 rounded-xl font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
+                <i class="fas fa-check-circle"></i>
+                <span>Proses Pembayaran</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Options Modal (Spice Level & Temperature) -->
+<div id="options-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
+        <h3 class="text-lg font-semibold mb-4" id="modal-item-name">Opsi Pesanan</h3>
+        
+        <div id="spice-options" class="mb-4 hidden">
+            <label class="text-sm text-gray-400 mb-2 block">Tingkat Kepedasan</label>
+            <div class="grid grid-cols-5 gap-2">
+                <button onclick="selectSpice('none')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="none">
+                    Tidak Pedas
+                </button>
+                <button onclick="selectSpice('mild')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="mild">
+                    Sedikit
+                </button>
+                <button onclick="selectSpice('medium')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="medium">
+                    Sedang
+                </button>
+                <button onclick="selectSpice('hot')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="hot">
+                    Pedas
+                </button>
+                <button onclick="selectSpice('extra_hot')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="extra_hot">
+                    Extra Pedas
+                </button>
+            </div>
+        </div>
+        
+        <div id="temp-options" class="mb-4 hidden">
+            <label class="text-sm text-gray-400 mb-2 block">Suhu Minuman</label>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="selectTemp('hot')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="hot">
+                    <i class="fas fa-mug-hot text-orange-400 mr-2"></i>Panas
+                </button>
+                <button onclick="selectTemp('cold')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="cold">
+                    <i class="fas fa-snowflake text-blue-400 mr-2"></i>Dingin
+                </button>
+                <button onclick="selectTemp('normal')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="normal">
+                    <i class="fas fa-glass-water text-gray-400 mr-2"></i>Normal
+                </button>
+            </div>
+        </div>
+        
+        <div class="mb-4">
+            <label class="text-sm text-gray-400 mb-2 block">Catatan</label>
+            <input type="text" id="item-notes" placeholder="Catatan tambahan..." 
+                   class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+        </div>
+        
+        <div class="flex space-x-3">
+            <button onclick="closeOptionsModal()" class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 font-medium hover:bg-white/20">
+                Batal
+            </button>
+            <button onclick="confirmAddToCart()" class="flex-1 py-2.5 rounded-xl btn-primary text-white font-medium">
+                Tambahkan
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Receipt Modal -->
+<div id="receipt-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-check text-green-400 text-3xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold">Pembayaran Berhasil!</h3>
+        </div>
+        
+        <div id="receipt-content" class="bg-white/5 rounded-xl p-4 mb-4 text-sm">
+            <!-- Receipt will be populated here -->
+        </div>
+        
+        <div class="flex space-x-3">
+            <button onclick="printReceipt()" class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 font-medium hover:bg-white/20" id="print-receipt-btn">
+                <i class="fas fa-print mr-2"></i><span id="print-btn-text">Cetak</span>
+            </button>
+            <button onclick="newOrder()" class="flex-1 py-2.5 rounded-xl btn-primary text-white font-medium">
+                <i class="fas fa-plus mr-2"></i>Pesanan Baru
+            </button>
+        </div>
+        <div class="text-center mt-2">
+            <span id="printer-connected-text" class="text-xs text-gray-500"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+// Cart state - loaded from database
+let cart = { items: [], subtotal: 0, total: 0 };
+let paymentMethod = 'cash';
+let currentItem = null;
+let appliedDiscount = null; // Store applied discount
+let selectedSpice = 'none';
+let selectedTemp = 'normal';
+
+// XSS Protection - escape HTML entities
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+// Format currency
+function formatCurrency(num) {
+    return 'Rp ' + new Intl.NumberFormat('id-ID').format(num);
+}
+
+// Load cart from database on page load
+async function loadCart() {
+    try {
+        const response = await fetch('/api/cart');
+        const result = await response.json();
+        if (result.success) {
+            cart = result.cart;
+            updateCartUI();
+        }
+    } catch (error) {
+        console.error('Error loading cart:', error);
+    }
+}
+
+// Toggle mobile cart visibility
+function toggleMobileCart() {
+    const cartSection = document.getElementById('cart-section');
+    const cartBtn = document.getElementById('mobile-cart-btn');
+    
+    if (cartSection.classList.contains('translate-y-full')) {
+        cartSection.classList.remove('translate-y-full');
+        cartSection.classList.add('translate-y-0');
+        if (cartBtn) cartBtn.classList.add('hidden');
+    } else {
+        cartSection.classList.add('translate-y-full');
+        cartSection.classList.remove('translate-y-0');
+        if (cartBtn) cartBtn.classList.remove('hidden');
+    }
+}
+
+// Update mobile cart count badge
+function updateMobileCartCount() {
+    const mobileCartCount = document.getElementById('mobile-cart-count');
+    if (mobileCartCount) {
+        // cart is an object with items array, not an array directly
+        const items = cart.items || [];
+        const count = items.reduce((sum, item) => sum + item.quantity, 0);
+        mobileCartCount.textContent = count;
+        mobileCartCount.style.display = count > 0 ? 'flex' : 'none';
+    }
+}
+
+// Initialize cart on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadCart();
+    updateMobileCartCount();
+});
+
+// Filter menu by category
+function filterCategory(categoryId) {
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-primary-500/20', 'text-primary-400');
+        btn.classList.add('bg-white/5', 'text-gray-400');
+    });
+    
+    const activeBtn = document.querySelector(`.category-btn[data-category="${categoryId}"]`);
+    activeBtn.classList.add('active', 'bg-primary-500/20', 'text-primary-400');
+    activeBtn.classList.remove('bg-white/5', 'text-gray-400');
+    
+    document.querySelectorAll('.menu-item').forEach(item => {
+        if (categoryId === 'all' || item.dataset.category == categoryId) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Search menu
+document.getElementById('search-menu').addEventListener('input', function(e) {
+    const query = e.target.value.toLowerCase();
+    document.querySelectorAll('.menu-item').forEach(item => {
+        const name = item.dataset.name.toLowerCase();
+        const code = (item.dataset.code || '').toLowerCase();
+        const matches = name.includes(query) || code.includes(query);
+        item.style.display = matches ? 'block' : 'none';
+    });
+});
+
+// Add to cart - show options modal if needed
+function addToCart(id, name, price, hasSpicy, hasTemp) {
+    currentItem = { id, name, price, hasSpicy, hasTemp };
+    
+    if (hasSpicy || hasTemp) {
+        document.getElementById('modal-item-name').textContent = name;
+        document.getElementById('spice-options').classList.toggle('hidden', !hasSpicy);
+        document.getElementById('temp-options').classList.toggle('hidden', !hasTemp);
+        document.getElementById('options-modal').classList.remove('hidden');
+        document.getElementById('options-modal').classList.add('flex');
+        
+        selectedSpice = 'none';
+        selectedTemp = 'normal';
+        document.querySelectorAll('.spice-btn, .temp-btn').forEach(btn => {
+            btn.classList.remove('border-primary-500', 'bg-primary-500/20');
+            btn.classList.add('border-transparent');
+        });
+    } else {
+        addItemToCartAPI(id, null, null, '');
+    }
+}
+
+function selectSpice(level) {
+    selectedSpice = level;
+    document.querySelectorAll('.spice-btn').forEach(btn => {
+        btn.classList.remove('border-primary-500', 'bg-primary-500/20');
+        btn.classList.add('border-transparent');
+    });
+    document.querySelector(`.spice-btn[data-level="${level}"]`).classList.add('border-primary-500', 'bg-primary-500/20');
+    document.querySelector(`.spice-btn[data-level="${level}"]`).classList.remove('border-transparent');
+}
+
+function selectTemp(temp) {
+    selectedTemp = temp;
+    document.querySelectorAll('.temp-btn').forEach(btn => {
+        btn.classList.remove('border-primary-500', 'bg-primary-500/20');
+        btn.classList.add('border-transparent');
+    });
+    document.querySelector(`.temp-btn[data-temp="${temp}"]`).classList.add('border-primary-500', 'bg-primary-500/20');
+    document.querySelector(`.temp-btn[data-temp="${temp}"]`).classList.remove('border-transparent');
+}
+
+function closeOptionsModal() {
+    document.getElementById('options-modal').classList.add('hidden');
+    document.getElementById('options-modal').classList.remove('flex');
+    document.getElementById('item-notes').value = '';
+}
+
+function confirmAddToCart() {
+    const notes = document.getElementById('item-notes').value;
+    addItemToCartAPI(
+        currentItem.id, 
+        currentItem.hasSpicy ? selectedSpice : null, 
+        currentItem.hasTemp ? selectedTemp : null, 
+        notes
+    );
+    closeOptionsModal();
+}
+
+// Add item to cart via API (database)
+async function addItemToCartAPI(menuItemId, spiceLevel, temperature, notes) {
+    try {
+        const response = await fetch('/api/cart/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                menu_item_id: menuItemId,
+                quantity: 1,
+                spice_level: spiceLevel,
+                temperature: temperature,
+                notes: notes
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            cart = result.cart;
+            updateCartUI();
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error adding to cart:', error);
+    }
+}
+
+function updateCartUI() {
+    const cartContainer = document.getElementById('cart-items');
+    const emptyCart = document.getElementById('empty-cart');
+    const items = cart.items || [];
+    
+    if (items.length === 0) {
+        cartContainer.innerHTML = `
+            <div id="empty-cart" class="text-center py-12 text-gray-500">
+                <i class="fas fa-shopping-cart text-4xl mb-3"></i>
+                <p>Keranjang kosong</p>
+                <p class="text-sm">Klik menu untuk menambahkan</p>
+            </div>
+        `;
+    } else {
+        cartContainer.innerHTML = items.map(item => `
+            <div class="glass rounded-xl p-3">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-medium text-sm">${escapeHtml(item.name)}</h4>
+                        <p class="text-primary-400 text-sm">${formatCurrency(item.price)}</p>
+                        ${item.spice_level ? `<span class="text-xs text-red-400"><i class="fas fa-pepper-hot mr-1"></i>${escapeHtml(item.spice_level)}</span>` : ''}
+                        ${item.temperature ? `<span class="text-xs text-blue-400 ml-2"><i class="fas fa-thermometer-half mr-1"></i>${escapeHtml(item.temperature)}</span>` : ''}
+                        ${item.notes ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(item.notes)}</p>` : ''}
+                    </div>
+                    <button onclick="removeFromCart(${parseInt(item.id)})" class="text-red-400 hover:text-red-300">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between mt-2">
+                    <div class="flex items-center space-x-2">
+                        <button onclick="updateQuantity(${parseInt(item.id)}, -1)" class="w-8 h-8 md:w-7 md:h-7 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 active:bg-white/30">
+                            <i class="fas fa-minus text-xs"></i>
+                        </button>
+                        <span class="w-8 text-center font-medium">${parseInt(item.quantity)}</span>
+                        <button onclick="updateQuantity(${parseInt(item.id)}, 1)" class="w-8 h-8 md:w-7 md:h-7 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 active:bg-white/30">
+                            <i class="fas fa-plus text-xs"></i>
+                        </button>
+                    </div>
+                    <span class="font-semibold">${formatCurrency(item.subtotal)}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    updateTotals();
+    updateMobileCartCount();
+}
+
+// Remove item from cart via API
+async function removeFromCart(itemId) {
+    try {
+        const response = await fetch(`/api/cart/remove/${itemId}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (result.success) {
+            cart = result.cart;
+            updateCartUI();
+        }
+    } catch (error) {
+        console.error('Error removing from cart:', error);
+    }
+}
+
+// Clear all cart items via API
+async function clearCart() {
+    try {
+        const response = await fetch('/api/cart/clear', {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (result.success) {
+            cart = result.cart;
+            clearPromo(); // Also clear any applied promo
+            updateCartUI();
+        }
+    } catch (error) {
+        console.error('Error clearing cart:', error);
+    }
+}
+
+// Update item quantity via API
+async function updateQuantity(itemId, delta) {
+    if (!cart.items) return;
+    const item = cart.items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    const newQuantity = item.quantity + delta;
+    
+    if (newQuantity <= 0) {
+        removeFromCart(itemId);
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/cart/update/${itemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity: newQuantity })
+        });
+        const result = await response.json();
+        if (result.success) {
+            cart = result.cart;
+            updateCartUI();
+        }
+    } catch (error) {
+        console.error('Error updating quantity:', error);
+    }
+}
+
+function updateTotals() {
+    document.getElementById('subtotal').textContent = formatCurrency(cart.subtotal || 0);
+    
+    // Calculate discount and update total
+    let finalTotal = cart.total || 0;
+    if (appliedDiscount) {
+        const discountAmount = appliedDiscount.discount_amount;
+        document.getElementById('discount-row').style.display = 'flex';
+        document.getElementById('discount-name').textContent = `(${appliedDiscount.discount.code})`;
+        document.getElementById('discount-amount').textContent = `- ${formatCurrency(discountAmount)}`;
+        finalTotal = Math.max(0, (cart.subtotal || 0) - discountAmount);
+    } else {
+        document.getElementById('discount-row').style.display = 'none';
+    }
+    
+    document.getElementById('total').textContent = formatCurrency(finalTotal);
+    
+    document.getElementById('checkout-btn').disabled = !cart.items || cart.items.length === 0;
+    
+    calculateChange();
+}
+
+// Apply promo code
+async function applyPromo() {
+    const code = document.getElementById('promo-code').value.trim().toUpperCase();
+    const resultDiv = document.getElementById('promo-result');
+    
+    if (!code) {
+        resultDiv.innerHTML = '<span class="text-yellow-400"><i class="fas fa-exclamation-circle mr-1"></i>Masukkan kode promo</span>';
+        resultDiv.className = 'mt-2 p-2 rounded-lg text-sm bg-yellow-500/10';
+        resultDiv.classList.remove('hidden');
+        return;
+    }
+    
+    if (!cart.subtotal || cart.subtotal === 0) {
+        resultDiv.innerHTML = '<span class="text-yellow-400"><i class="fas fa-exclamation-circle mr-1"></i>Keranjang masih kosong</span>';
+        resultDiv.className = 'mt-2 p-2 rounded-lg text-sm bg-yellow-500/10';
+        resultDiv.classList.remove('hidden');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/discount/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code, subtotal: cart.subtotal })
+        });
+        const result = await response.json();
+        
+        if (result.valid) {
+            appliedDiscount = result;
+            resultDiv.innerHTML = `<span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>${result.message} (-${formatCurrency(result.discount_amount)})</span>`;
+            resultDiv.className = 'mt-2 p-2 rounded-lg text-sm bg-green-500/10';
+            document.getElementById('promo-code').disabled = true;
+            updateTotals();
+        } else {
+            resultDiv.innerHTML = `<span class="text-red-400"><i class="fas fa-times-circle mr-1"></i>${result.message}</span>`;
+            resultDiv.className = 'mt-2 p-2 rounded-lg text-sm bg-red-500/10';
+        }
+        resultDiv.classList.remove('hidden');
+    } catch (error) {
+        console.error('Error validating promo:', error);
+        resultDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-times-circle mr-1"></i>Gagal memvalidasi kode promo</span>';
+        resultDiv.className = 'mt-2 p-2 rounded-lg text-sm bg-red-500/10';
+        resultDiv.classList.remove('hidden');
+    }
+}
+
+// Clear promo
+function clearPromo() {
+    appliedDiscount = null;
+    document.getElementById('promo-code').value = '';
+    document.getElementById('promo-code').disabled = false;
+    document.getElementById('promo-result').classList.add('hidden');
+    document.getElementById('discount-row').style.display = 'none';
+    updateTotals();
+}
+
+function setPaymentMethod(method) {
+    paymentMethod = method;
+    document.querySelectorAll('.payment-method-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-primary-500/20', 'text-primary-400', 'border-primary-500/30');
+        btn.classList.add('bg-white/5', 'text-gray-400', 'border-white/10');
+    });
+    document.querySelector(`.payment-method-btn[data-method="${method}"]`).classList.add('active', 'bg-primary-500/20', 'text-primary-400', 'border-primary-500/30');
+    document.querySelector(`.payment-method-btn[data-method="${method}"]`).classList.remove('bg-white/5', 'text-gray-400', 'border-white/10');
+    
+    document.getElementById('cash-payment').style.display = method === 'cash' ? 'block' : 'none';
+}
+
+function setQuickCash(amount) {
+    document.getElementById('paid-amount').value = amount;
+    calculateChange();
+}
+
+function calculateChange() {
+    // Ensure total is a number
+    const total = Number(cart.total) || 0;
+    // Get paid amount and clean it (remove any non-numeric characters except numbers)
+    const paidInput = document.getElementById('paid-amount').value.toString().replace(/[^\d]/g, '');
+    const paid = parseInt(paidInput) || 0;
+    const change = paid - total;
+    
+    // Update change display
+    document.getElementById('change').textContent = formatCurrency(Math.max(0, change));
+    
+    // Update color based on status
+    if (paid === 0) {
+        document.getElementById('change').className = 'text-gray-400';
+    } else if (paid < total) {
+        document.getElementById('change').className = 'text-red-400';
+        document.getElementById('change').textContent = 'Kurang ' + formatCurrency(total - paid);
+    } else {
+        document.getElementById('change').className = 'text-green-400';
+    }
+}
+
+async function processCheckout() {
+    if (!cart.items || cart.items.length === 0) return;
+    
+    // Calculate final total with discount
+    let finalTotal = cart.total || 0;
+    let discountAmount = 0;
+    
+    if (appliedDiscount) {
+        discountAmount = appliedDiscount.discount_amount;
+        finalTotal = Math.max(0, (cart.subtotal || 0) - discountAmount);
+    }
+    
+    const paid = parseInt(document.getElementById('paid-amount').value) || 0;
+    
+    if (paymentMethod === 'cash' && paid < finalTotal) {
+        alert('Jumlah bayar kurang!');
+        return;
+    }
+    
+    const orderData = {
+        items: cart.items,
+        table_id: document.getElementById('table-select').value || null,
+        order_type: document.getElementById('order-type').value,
+        customer_name: document.getElementById('customer-name').value,
+        payment_method: paymentMethod,
+        paid_amount: paid,
+        discount: discountAmount,
+        discount_code: appliedDiscount ? appliedDiscount.discount.code : null
+    };
+    
+    try {
+        const response = await fetch('/api/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Clear cart immediately after successful checkout
+            await clearCart();
+            
+            // Handle online payment - redirect to custom payment page
+            if (result.payment_method === 'online') {
+                // Redirect to beautiful payment page
+                window.location.href = `/payment/${result.order.id}`;
+            } else {
+                // Cash payment success - show receipt (cart already cleared)
+                showReceipt(result.order);
+            }
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Open Midtrans Snap popup for online payment
+function openMidtransPayment(snapToken, order) {
+    if (typeof window.snap !== 'undefined') {
+        window.snap.pay(snapToken, {
+            onSuccess: function(result) {
+                console.log('Payment success:', result);
+                // Update payment status
+                updatePaymentStatus(order.id, 'paid', result);
+                showReceipt(order);
+                clearCart();
+            },
+            onPending: function(result) {
+                console.log('Payment pending:', result);
+                alert('Pembayaran pending. Silakan selesaikan pembayaran Anda.');
+                showPendingOrder(order);
+            },
+            onError: function(result) {
+                console.log('Payment error:', result);
+                alert('Pembayaran gagal. Silakan coba lagi.');
+            },
+            onClose: function() {
+                console.log('Snap popup closed');
+                alert('Pembayaran dibatalkan. Pesanan Anda tetap tersimpan dengan status pending.');
+            }
+        });
+    } else {
+        // Snap.js not loaded, show fallback
+        alert('Payment gateway tidak tersedia. Silakan hubungi kasir untuk pembayaran manual.');
+        showPendingOrder(order);
+    }
+}
+
+// Update payment status after Midtrans callback
+async function updatePaymentStatus(orderId, status, midtransResult) {
+    try {
+        await fetch('/api/payment/midtrans/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                order_id: midtransResult.order_id,
+                transaction_status: status === 'paid' ? 'settlement' : 'pending',
+                transaction_id: midtransResult.transaction_id
+            })
+        });
+    } catch (error) {
+        console.error('Error updating payment status:', error);
+    }
+}
+
+// Show pending order modal
+function showPendingOrder(order) {
+    const receiptContent = document.getElementById('receipt-content');
+    receiptContent.innerHTML = `
+        <div class="text-center mb-4">
+            <div class="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center mx-auto mb-2">
+                <i class="fas fa-clock text-yellow-400 text-xl"></i>
+            </div>
+            <h4 class="font-bold text-yellow-400">MENUNGGU PEMBAYARAN</h4>
+            <p class="text-gray-400 text-xs">Pesanan belum dibayar</p>
+        </div>
+        <div class="border-t border-dashed border-white/20 py-2">
+            <p class="text-xs text-gray-400">${order.order_number}</p>
+            <p class="text-xs text-gray-400">${new Date().toLocaleString('id-ID')}</p>
+            ${order.table ? `<p class="text-xs text-gray-400">Meja: ${order.table}</p>` : ''}
+        </div>
+        <div class="border-t border-dashed border-white/20 py-2">
+            <div class="flex justify-between font-bold">
+                <span>Total</span>
+                <span>${formatCurrency(order.total)}</span>
+            </div>
+        </div>
+        <div class="text-center text-xs text-yellow-400 pt-2 border-t border-dashed border-white/20">
+            Silakan selesaikan pembayaran
+        </div>
+    `;
+    
+    document.getElementById('receipt-modal').classList.remove('hidden');
+    document.getElementById('receipt-modal').classList.add('flex');
+}
+
+function showReceipt(order) {
+    // Store order for Bluetooth printing
+    currentReceiptOrder = order;
+    
+    const receiptContent = document.getElementById('receipt-content');
+    receiptContent.innerHTML = `
+        <div class="text-center mb-4">
+            <h4 class="font-bold">Dapoer Teras Obor</h4>
+            <p class="text-gray-400 text-xs">Jl. Rw. Belong, Jakarta Barat</p>
+        </div>
+        <div class="border-t border-dashed border-white/20 py-2">
+            <p class="text-xs text-gray-400">${order.order_number}</p>
+            <p class="text-xs text-gray-400">${new Date().toLocaleString('id-ID')}</p>
+            ${order.table ? `<p class="text-xs text-gray-400">Meja: ${order.table}</p>` : ''}
+        </div>
+        <div class="border-t border-dashed border-white/20 py-2 space-y-1">
+            ${order.items.map(item => `
+                <div class="flex justify-between text-xs">
+                    <span>${item.name} x${item.quantity}</span>
+                    <span>${formatCurrency(item.subtotal)}</span>
+                </div>
+            `).join('')}
+        </div>
+        <div class="border-t border-dashed border-white/20 py-2 space-y-1">
+            <div class="flex justify-between text-xs">
+                <span>Subtotal</span>
+                <span>${formatCurrency(order.subtotal)}</span>
+            </div>
+            <div class="flex justify-between font-bold">
+                <span>Total</span>
+                <span>${formatCurrency(order.total)}</span>
+            </div>
+            ${order.payment ? `
+            <div class="flex justify-between text-xs">
+                <span>Bayar</span>
+                <span>${formatCurrency(order.payment.paid_amount)}</span>
+            </div>
+            <div class="flex justify-between text-xs">
+                <span>Kembalian</span>
+                <span>${formatCurrency(order.payment.change_amount)}</span>
+            </div>
+            ` : ''}
+        </div>
+        <div class="text-center text-xs text-gray-400 pt-2 border-t border-dashed border-white/20">
+            Terima kasih!
+        </div>
+    `;
+    
+    document.getElementById('receipt-modal').classList.remove('hidden');
+    document.getElementById('receipt-modal').classList.add('flex');
+    
+    // AUTO PRINT 3x via Bluetooth after successful payment
+    autoPrintReceipt3x(order);
+    
+    // Note: Cart already cleared in processCheckout() after successful order
+}
+
+// ============================================
+// PRINT QUEUE SYSTEM - Mencegah konflik printer
+// ============================================
+class PrintQueue {
+    constructor() {
+        this.queue = [];
+        this.isProcessing = false;
+    }
+    
+    // Tambah job ke antrian
+    add(printJob) {
+        this.queue.push(printJob);
+        console.log(`[PrintQueue] Job ditambahkan. Antrian: ${this.queue.length}`);
+        this.process();
+    }
+    
+    // Proses antrian
+    async process() {
+        if (this.isProcessing || this.queue.length === 0) {
+            return;
+        }
+        
+        this.isProcessing = true;
+        
+        while (this.queue.length > 0) {
+            const job = this.queue.shift();
+            console.log(`[PrintQueue] Memproses job. Sisa antrian: ${this.queue.length}`);
+            
+            try {
+                await job();
+            } catch (error) {
+                console.error('[PrintQueue] Error:', error);
+            }
+            
+            // Delay 1 detik antar job untuk mencegah bentrok
+            if (this.queue.length > 0) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+        
+        this.isProcessing = false;
+        console.log('[PrintQueue] Semua job selesai');
+    }
+    
+    // Cek status
+    get status() {
+        return {
+            isProcessing: this.isProcessing,
+            queueLength: this.queue.length
+        };
+    }
+}
+
+// Global print queue instance
+const printQueue = new PrintQueue();
+
+// AUTO PRINT 3x - Save receipt to server queue for Printer Station
+// Printer Station will poll and print automatically
+async function autoPrintReceipt3x(order) {
+    console.log('Menyimpan struk ke antrian server untuk order:', order.order_number);
+    
+    // Save to server queue - Printer Station will handle printing
+    try {
+        // Build receipt commands for 3 copies
+        for (let i = 1; i <= 3; i++) {
+            const commands = buildReceiptCommandsWithCopy(order, i, 3);
+            
+            // Save to server pending queue
+            const response = await fetch('/api/pending-prints', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: order.id,
+                    receipt_data: commands,
+                    copies: 3,
+                    current_copy: i
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Gagal menyimpan struk ke antrian');
+            }
+        }
+        
+        showToast('📤 Struk dikirim ke Printer Station (3 lembar)', 'success');
+        console.log('Struk berhasil disimpan ke antrian server');
+        
+    } catch (error) {
+        console.error('Error saving receipt to queue:', error);
+        showToast('⚠️ Gagal mengirim struk: ' + error.message, 'error');
+    }
+}
+
+// Build ESC/POS receipt commands with copy number and FANCY DESIGN
+function buildReceiptCommandsWithCopy(order, copyNum, totalCopies) {
+    const encoder = new TextEncoder();
+    let commands = [];
+    
+    // Label untuk tiap lembar
+    const copyLabels = ['Kasir', 'Pelanggan', 'Dapur'];
+    const copyLabel = copyLabels[copyNum - 1] || `Copy ${copyNum}`;
+    
+    // Initialize printer
+    commands.push(...ESC_POS.INIT);
+    
+    // ========== HEADER LOGO - FANCY DESIGN ==========
+    commands.push(...ESC_POS.ALIGN_CENTER);
+    commands.push(...ESC_POS.BOLD_ON);
+    
+    // Top border
+    commands.push(...encoder.encode('================================'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // ASCII Art Logo - Dapoer Teras Obor
+    commands.push(...encoder.encode(' ★ DAPOER TERAS OBOR ★'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode('    Kuliner Nusantara'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    commands.push(...encoder.encode('================================'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // Restaurant Info
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...encoder.encode('Jl. Rw. Belong, Jakarta Barat'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    commands.push(...encoder.encode('Telp: 021-XXXXXXX'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // ========== COPY INDICATOR ==========
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...encoder.encode(`>>> Lembar ${copyNum}/${totalCopies} - ${copyLabel} <<<`));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    
+    commands.push(...encoder.encode('--------------------------------'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // ========== ORDER INFO ==========
+    commands.push(...ESC_POS.ALIGN_LEFT);
+    commands.push(...encoder.encode(`No Order : ${order.order_number || 'N/A'}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode(`Tanggal  : ${new Date().toLocaleDateString('id-ID')}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode(`Jam      : ${new Date().toLocaleTimeString('id-ID')}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    if (order.table) {
+        commands.push(...encoder.encode(`Meja     : ${order.table}`));
+        commands.push(...ESC_POS.FEED_LINE);
+    }
+    commands.push(...encoder.encode(`Kasir    : {{ current_user.username }}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    commands.push(...encoder.encode('--------------------------------'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.ALIGN_CENTER);
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...encoder.encode('DETAIL PESANAN'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    commands.push(...encoder.encode('--------------------------------'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.ALIGN_LEFT);
+    
+    // ========== ITEMS ==========
+    if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+            const name = item.name.substring(0, 20);
+            const qty = `x${item.quantity}`;
+            const price = formatNumber(item.subtotal);
+            
+            commands.push(...encoder.encode(name));
+            commands.push(...ESC_POS.FEED_LINE);
+            commands.push(...encoder.encode(`   ${qty}           Rp ${price}`));
+            commands.push(...ESC_POS.FEED_LINE);
+        }
+    }
+    
+    commands.push(...encoder.encode('--------------------------------'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // ========== TOTALS ==========
+    const pad = (label, value) => {
+        const space = 32 - label.length - value.length;
+        return label + ' '.repeat(Math.max(1, space)) + value;
+    };
+    
+    commands.push(...encoder.encode(pad('Subtotal:', `Rp ${formatNumber(order.subtotal || 0)}`)));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    commands.push(...encoder.encode('================================'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...ESC_POS.DOUBLE_HEIGHT);
+    commands.push(...encoder.encode(pad('TOTAL:', `Rp ${formatNumber(order.total || 0)}`)));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.NORMAL_SIZE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    commands.push(...encoder.encode('================================'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // ========== PAYMENT INFO ==========
+    if (order.payment) {
+        commands.push(...encoder.encode(pad('Bayar:', `Rp ${formatNumber(order.payment.paid_amount || 0)}`)));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...encoder.encode(pad('Kembalian:', `Rp ${formatNumber(order.payment.change_amount || 0)}`)));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...encoder.encode(`Metode: ${order.payment.payment_method || 'Cash'}`));
+        commands.push(...ESC_POS.FEED_LINE);
+    }
+    
+    commands.push(...encoder.encode('--------------------------------'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // ========== FOOTER - THANK YOU ==========
+    commands.push(...ESC_POS.ALIGN_CENTER);
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...encoder.encode('★ TERIMA KASIH ★'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    commands.push(...encoder.encode('Atas Kunjungan Anda'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode('Selamat Menikmati Hidangan'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // App branding
+    commands.push(...encoder.encode('~ Dapoer Teras Obor ~'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode(`Lembar ${copyNum}/${totalCopies} - ${copyLabel}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode('================================'));
+    commands.push(...ESC_POS.FEED_LINES(4));
+    
+    // Cut paper
+    commands.push(...ESC_POS.CUT_PAPER);
+    
+    return commands;
+}
+
+function printReceipt() {
+    // Send to Printer Station via server queue
+    if (currentReceiptOrder) {
+        saveReceiptToServerQueue(currentReceiptOrder, 1);
+        showToast('📤 Struk dikirim ke Printer Station', 'info');
+    } else {
+        // Fallback to browser print for preview
+        window.print();
+    }
+}
+
+// Save receipt to server queue for Printer Station
+async function saveReceiptToServerQueue(order, copies = 1) {
+    try {
+        for (let i = 1; i <= copies; i++) {
+            const commands = buildReceiptCommandsWithCopy(order, i, copies);
+            
+            await fetch('/api/pending-prints', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: order.id,
+                    receipt_data: commands,
+                    copies: copies,
+                    current_copy: i
+                })
+            });
+        }
+        console.log(`Receipt saved to server queue (${copies} copies)`);
+    } catch (error) {
+        console.error('Error saving receipt to queue:', error);
+    }
+}
+
+// ESC/POS Commands for thermal printers (used for building receipt data)
+const ESC_POS = {
+    INIT: [0x1B, 0x40],                          // Initialize printer
+    ALIGN_CENTER: [0x1B, 0x61, 0x01],            // Center align
+    ALIGN_LEFT: [0x1B, 0x61, 0x00],              // Left align
+    BOLD_ON: [0x1B, 0x45, 0x01],                 // Bold on
+    BOLD_OFF: [0x1B, 0x45, 0x00],                // Bold off
+    DOUBLE_HEIGHT: [0x1B, 0x21, 0x10],           // Double height
+    NORMAL_SIZE: [0x1B, 0x21, 0x00],             // Normal size
+    CUT_PAPER: [0x1D, 0x56, 0x00],               // Full cut
+    FEED_LINE: [0x0A],                           // Line feed
+    FEED_LINES: (n) => [0x1B, 0x64, n],          // Feed n lines
+};
+
+// Store current order for printing
+let currentReceiptOrder = null;
+
+function getReceiptData() {
+    return currentReceiptOrder;
+}
+
+// Build ESC/POS receipt commands
+function buildReceiptCommands(order) {
+    const encoder = new TextEncoder();
+    let commands = [];
+    
+    // Initialize printer
+    commands.push(...ESC_POS.INIT);
+    
+    // Header - Center aligned, bold
+    commands.push(...ESC_POS.ALIGN_CENTER);
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...ESC_POS.DOUBLE_HEIGHT);
+    commands.push(...encoder.encode('Dapoer Teras Obor'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    commands.push(...ESC_POS.NORMAL_SIZE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    commands.push(...encoder.encode('Jl. Rw. Belong, Jakarta Barat'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode('================================'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // Order info
+    commands.push(...ESC_POS.ALIGN_LEFT);
+    commands.push(...encoder.encode(`No: ${order.order_number || 'N/A'}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode(`Waktu: ${new Date().toLocaleString('id-ID')}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    if (order.table) {
+        commands.push(...encoder.encode(`Meja: ${order.table}`));
+        commands.push(...ESC_POS.FEED_LINE);
+    }
+    commands.push(...encoder.encode('--------------------------------'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // Items
+    if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+            const name = item.name.substring(0, 20);
+            const qty = `x${item.quantity}`;
+            const price = formatNumber(item.subtotal);
+            
+            commands.push(...encoder.encode(name));
+            commands.push(...ESC_POS.FEED_LINE);
+            commands.push(...encoder.encode(`  ${qty}            Rp ${price}`));
+            commands.push(...ESC_POS.FEED_LINE);
+        }
+    }
+    
+    commands.push(...encoder.encode('--------------------------------'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // Totals
+    const pad = (label, value) => {
+        const space = 32 - label.length - value.length;
+        return label + ' '.repeat(Math.max(1, space)) + value;
+    };
+    
+    commands.push(...encoder.encode(pad('Subtotal:', `Rp ${formatNumber(order.subtotal || 0)}`)));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...encoder.encode(pad('TOTAL:', `Rp ${formatNumber(order.total || 0)}`)));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    
+    if (order.payment) {
+        commands.push(...encoder.encode(pad('Bayar:', `Rp ${formatNumber(order.payment.paid_amount || 0)}`)));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...encoder.encode(pad('Kembalian:', `Rp ${formatNumber(order.payment.change_amount || 0)}`)));
+        commands.push(...ESC_POS.FEED_LINE);
+    }
+    
+    commands.push(...encoder.encode('================================'));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // Footer
+    commands.push(...ESC_POS.ALIGN_CENTER);
+    commands.push(...encoder.encode('Terima kasih atas kunjungan Anda!'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode('Selamat menikmati'));
+    commands.push(...ESC_POS.FEED_LINES(4));
+    
+    // Cut paper
+    commands.push(...ESC_POS.CUT_PAPER);
+    
+    return commands;
+}
+
+// Parse receipt data from DOM if order object not available
+function parseReceiptFromDOM(element) {
+    // Simple fallback - extract text from receipt
+    return {
+        order_number: 'N/A',
+        items: [],
+        subtotal: 0,
+        total: 0
+    };
+}
+
+// Toast notification helper
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    
+    const icons = {
+        success: 'fa-check-circle text-green-400',
+        error: 'fa-exclamation-circle text-red-400',
+        warning: 'fa-exclamation-triangle text-yellow-400',
+        info: 'fa-info-circle text-blue-400'
+    };
+    
+    toast.className = 'glass-card rounded-lg p-4 flex items-center space-x-3 max-w-sm animate-fade-in cursor-pointer';
+    toast.innerHTML = `
+        <i class="fas ${icons[type]} text-xl"></i>
+        <span class="text-sm text-gray-200">${message}</span>
+        <button class="ml-auto text-gray-400 hover:text-white">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    toast.onclick = () => toast.remove();
+    container.appendChild(toast);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 4000);
+}
+
+function newOrder() {
+    document.getElementById('receipt-modal').classList.add('hidden');
+    document.getElementById('receipt-modal').classList.remove('flex');
+    clearCart();
+    document.getElementById('paid-amount').value = '';
+    document.getElementById('customer-name').value = '';
+    document.getElementById('table-select').value = '';
+}
+</script>
+{% endblock %}

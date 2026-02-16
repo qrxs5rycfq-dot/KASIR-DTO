@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Dapoer Teras Obor{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        accent: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Poppins', 'system-ui', 'sans-serif'],
+                    },
+                    backdropBlur: {
+                        xs: '2px',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Midtrans Snap.js for Payment Gateway -->
+    {% if config.MIDTRANS_IS_PRODUCTION %}
+    <script src="https://app.midtrans.com/snap/snap.js" data-client-key="{{ config.MIDTRANS_CLIENT_KEY }}"></script>
+    {% else %}
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ config.MIDTRANS_CLIENT_KEY }}"></script>
+    {% endif %}
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Custom Styles -->
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            min-height: 100vh;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-dark {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            transition: background 0.15s ease;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            transition: background 0.15s ease;
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+        }
+        
+        .sidebar-link {
+            transition: background 0.15s ease;
+        }
+        
+        .sidebar-link:hover, .sidebar-link.active {
+            background: linear-gradient(90deg, rgba(14, 165, 233, 0.2) 0%, transparent 100%);
+            border-left: 3px solid #0ea5e9;
+        }
+        
+        .menu-card {
+            transition: box-shadow 0.15s ease;
+        }
+        
+        .menu-card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Simplified animations - lighter and faster */
+        .animate-fade-in {
+            animation: fadeIn 0.2s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="text-white antialiased">
+    {% block body %}{% endblock %}
+    
+    <!-- Notification Bell (Global) - Floating Bottom Right -->
+    {% if current_user.is_authenticated %}
+    <div id="notification-bell" class="fixed bottom-6 right-6 z-40">
+        <button onclick="toggleNotificationPanel()" class="relative w-12 h-12 bg-gray-800/90 backdrop-blur rounded-full flex items-center justify-center text-white shadow-lg hover:bg-gray-700 transition-colors ring-1 ring-white/10">
+            <i class="fas fa-bell text-lg"></i>
+            <span id="notification-badge" class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center hidden">0</span>
+        </button>
+        
+        <!-- Notification Panel -->
+        <div id="notification-panel" class="hidden absolute right-0 bottom-16 w-80 max-h-96 glass-card rounded-xl shadow-xl overflow-hidden">
+            <div class="flex items-center justify-between p-4 border-b border-white/10">
+                <h3 class="font-semibold">Notifikasi</h3>
+                <button onclick="markAllRead()" class="text-xs text-primary-400 hover:text-primary-300">Tandai semua dibaca</button>
+            </div>
+            <div id="notification-list" class="overflow-y-auto max-h-72">
+                <div class="p-4 text-center text-gray-400 text-sm">Memuat notifikasi...</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="toast glass-card rounded-lg p-4 flex items-center space-x-3 max-w-sm animate-fade-in"
+                         onclick="this.remove()">
+                        {% if category == 'success' %}
+                            <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                        {% elif category == 'danger' or category == 'error' %}
+                            <i class="fas fa-exclamation-circle text-red-400 text-xl"></i>
+                        {% elif category == 'warning' %}
+                            <i class="fas fa-exclamation-triangle text-yellow-400 text-xl"></i>
+                        {% else %}
+                            <i class="fas fa-info-circle text-blue-400 text-xl"></i>
+                        {% endif %}
+                        <span class="text-sm text-gray-200">{{ message }}</span>
+                        <button class="ml-auto text-gray-400 hover:text-white">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+    
+    <!-- Include Global Printer Manager for auto-connect across all pages -->
+    <script src="{{ url_for('static', filename='js/printer.js') }}"></script>
+    
+    <script>
+        // CSRF Token for AJAX requests
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        // Override fetch to include CSRF token
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            // Only add CSRF token for same-origin requests
+            if (url.toString().startsWith('/') || url.toString().startsWith(window.location.origin)) {
+                options.headers = options.headers || {};
+                if (!(options.headers instanceof Headers)) {
+                    options.headers['X-CSRFToken'] = csrfToken;
+                }
+            }
+            return originalFetch(url, options);
+        };
+        
+        // Auto dismiss toasts
+        setTimeout(() => {
+            document.querySelectorAll('.toast').forEach(toast => {
+                toast.style.animation = 'slideOut 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            });
+        }, 5000);
+        
+        // Format number helper
+        function formatNumber(num) {
+            return new Intl.NumberFormat('id-ID').format(num);
+        }
+        
+        function formatCurrency(num) {
+            return 'Rp ' + formatNumber(num);
+        }
+        
+        // ========== NOTIFICATION SYSTEM ==========
+        {% if current_user.is_authenticated %}
+        let lastNotificationCount = 0;
+        const notificationSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleywGfLPi/teleQsGhLL7/telejkEAaa75P2bWTQFHqLr/v2bfg8AcK7z/tqTfhIAl7f0/sKIfBYAr77y/qGQfBIAr7/z/pCXfQ0Aq7/y/o2WfQoAq7zy/oqVfQcAqr3y/oiTfQQAqr3y/oaRfQEAqb3y/oSPfP4Ap7zy/oKNfPsAprzx/oCLe/gAo7rx/n6Je/UApLnx/nyHe/IApbjw/nqFevAAorfw/niDevoAobfw/naBevcAnrfw/nR/evQAnLbv/nJ9ePEAnbXv/nB7ePAAnLTu/m55d+0Am7Pu/mx3du0Am7Lu/mp1deoAmbLu/mhzdekAmrHt/mZxdOYAmLDt/mRvc+UAl6/t/mJtcuQAlq7s/mBrceEAlK3s/l5pb98Ak6zr/lxnbt0AkqvrDlplbNsAkarrElljattAkKnqF1dhaNlAj6jqG1VfZ9dAjqfpIFNdZdVAjKboJFBbY9NAi6XnKE1ZYdFAiaToLEpXX89AiKLnMEdVXc1Ah6HmNEVTW8xAhZ/lOEJRWcpAhJ7kPD9OV8hAg5zjQDxMVcZAf5viRTlKU8RAf5nhSTdIUcJAfJfgTTRGT8BAfJXfUTFETr5AepPeVS5CSbxAeZHdWSxAPblAd5DbYChCPrdAdo7aaSlAO7VAc4zYbCY+ObJAcYnXcCM8N7BAb4bVdCA6Na5AbYPTeCM4M6tAaoDRfCA2MatAZ33PgB8zL6hAZXrNhB4wLaZAYnfLiB0uK6NAYHTJjBwsKaFAXXHHkBsqJp5AWm7FlhoqIptAV2vDmxknHphAVGjBoBYlHJVAT2S/qQ==');
+        
+        function toggleNotificationPanel() {
+            const panel = document.getElementById('notification-panel');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                loadNotifications();
+            }
+        }
+        
+        // Close panel when clicking outside
+        document.addEventListener('click', function(e) {
+            const bell = document.getElementById('notification-bell');
+            const panel = document.getElementById('notification-panel');
+            if (bell && panel && !bell.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        });
+        
+        async function loadNotifications() {
+            try {
+                const response = await fetch('/api/notifications');
+                const data = await response.json();
+                
+                const badge = document.getElementById('notification-badge');
+                const list = document.getElementById('notification-list');
+                
+                // Update badge
+                if (data.unread_count > 0) {
+                    badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                    badge.classList.remove('hidden');
+                    
+                    // Play sound if new notifications
+                    if (data.unread_count > lastNotificationCount) {
+                        notificationSound.play().catch(e => console.debug('Notification sound could not play:', e));
+                    }
+                } else {
+                    badge.classList.add('hidden');
+                }
+                lastNotificationCount = data.unread_count;
+                
+                // Render notifications
+                if (data.notifications.length === 0) {
+                    list.innerHTML = '<div class="p-4 text-center text-gray-400 text-sm">Tidak ada notifikasi</div>';
+                } else {
+                    list.innerHTML = data.notifications.map(n => `
+                        <div class="p-3 border-b border-white/5 hover:bg-white/5 cursor-pointer ${n.is_read ? 'opacity-60' : ''}" 
+                             onclick="handleNotificationClick(${n.id}, '${n.type}', '${encodeURIComponent(n.data || '')}')">
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getNotificationIconClass(n.type)}">
+                                    <i class="${getNotificationIcon(n.type)}"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium truncate">${escapeHtml(n.title)}</p>
+                                    <p class="text-xs text-gray-400 truncate">${escapeHtml(n.message || '')}</p>
+                                    <p class="text-xs text-gray-500 mt-1">${formatTimeAgo(n.created_at)}</p>
+                                </div>
+                                ${n.is_read ? '' : '<div class="w-2 h-2 bg-primary-400 rounded-full flex-shrink-0"></div>'}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Failed to load notifications:', error);
+            }
+        }
+        
+        function getNotificationIcon(type) {
+            const icons = {
+                'order_new': 'fas fa-shopping-cart',
+                'payment_success': 'fas fa-check-circle',
+                'payment_failed': 'fas fa-times-circle',
+                'order_ready': 'fas fa-utensils'
+            };
+            return icons[type] || 'fas fa-bell';
+        }
+        
+        function getNotificationIconClass(type) {
+            const classes = {
+                'order_new': 'bg-blue-500/20 text-blue-400',
+                'payment_success': 'bg-green-500/20 text-green-400',
+                'payment_failed': 'bg-red-500/20 text-red-400',
+                'order_ready': 'bg-yellow-500/20 text-yellow-400'
+            };
+            return classes[type] || 'bg-gray-500/20 text-gray-400';
+        }
+        
+        function formatTimeAgo(isoString) {
+            const date = new Date(isoString);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            
+            if (diff < 60) return 'Baru saja';
+            if (diff < 3600) return Math.floor(diff / 60) + ' menit lalu';
+            if (diff < 86400) return Math.floor(diff / 3600) + ' jam lalu';
+            return Math.floor(diff / 86400) + ' hari lalu';
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        async function handleNotificationClick(id, type, dataStr) {
+            // Mark as read first
+            try {
+                await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+            } catch (error) {
+                console.error('Failed to mark notification as read:', error);
+            }
+            
+            // Parse notification data (decode URI-encoded JSON)
+            let data = {};
+            if (dataStr) {
+                try {
+                    data = JSON.parse(decodeURIComponent(dataStr));
+                } catch (e) {
+                    console.error('Failed to parse notification data:', e);
+                }
+            }
+            
+            // Redirect based on notification type
+            if (data.order_id) {
+                // Redirect to orders page with the order highlighted
+                window.location.href = `/orders?highlight=${data.order_id}`;
+            } else if (type === 'order_new' || type === 'payment_success' || type === 'payment_failed') {
+                // Redirect to orders page
+                window.location.href = '/orders';
+            } else if (type === 'order_ready') {
+                // Redirect to kitchen page
+                window.location.href = '/kitchen';
+            } else {
+                // Just reload notifications
+                loadNotifications();
+            }
+        }
+        
+        async function markRead(id) {
+            try {
+                await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+                loadNotifications();
+            } catch (error) {
+                console.error('Failed to mark notification as read:', error);
+            }
+        }
+        
+        async function markAllRead() {
+            try {
+                await fetch('/api/notifications/read-all', { method: 'POST' });
+                loadNotifications();
+            } catch (error) {
+                console.error('Failed to mark all notifications as read:', error);
+            }
+        }
+        
+        // Auto-refresh notifications every 30 seconds
+        setInterval(loadNotifications, 30000);
+        
+        // Initial load
+        setTimeout(loadNotifications, 1000);
+        {% endif %}
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

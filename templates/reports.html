@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Laporan - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    {% set active_page = 'reports' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="mb-8">
+            <h1 class="text-2xl font-display font-bold">Laporan & Statistik</h1>
+            <p class="text-gray-400">Lihat dan export laporan penjualan</p>
+        </header>
+        
+        <!-- Report Types -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Income Report -->
+            <div class="glass-card rounded-2xl p-6">
+                <div class="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center mb-4">
+                    <i class="fas fa-dollar-sign text-green-400 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold mb-2">Laporan Pendapatan</h3>
+                <p class="text-gray-400 text-sm mb-4">Lihat detail pendapatan harian, mingguan, atau bulanan</p>
+                <a href="{{ url_for('income_report') }}" class="btn-primary inline-block px-4 py-2 rounded-xl text-sm font-medium">
+                    <i class="fas fa-eye mr-2"></i>Lihat Laporan
+                </a>
+            </div>
+            
+            <!-- Export PDF -->
+            <div class="glass-card rounded-2xl p-6">
+                <div class="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center mb-4">
+                    <i class="fas fa-file-pdf text-red-400 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold mb-2">Export PDF</h3>
+                <p class="text-gray-400 text-sm mb-4">Download laporan dalam format PDF</p>
+                <form action="{{ url_for('export_pdf') }}" method="GET" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="date" name="start_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
+                        <input type="date" name="end_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
+                    </div>
+                    <button type="submit" class="w-full bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl text-sm font-medium text-white">
+                        <i class="fas fa-download mr-2"></i>Download PDF
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Export Excel -->
+            <div class="glass-card rounded-2xl p-6">
+                <div class="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center mb-4">
+                    <i class="fas fa-file-excel text-green-400 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold mb-2">Export Excel</h3>
+                <p class="text-gray-400 text-sm mb-4">Download laporan dalam format Excel</p>
+                <form action="{{ url_for('export_excel') }}" method="GET" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="date" name="start_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
+                        <input type="date" name="end_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 px-4 py-2 rounded-xl text-sm font-medium text-white">
+                        <i class="fas fa-download mr-2"></i>Download Excel
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Quick Stats -->
+        <div class="glass-card rounded-2xl p-6 mt-6">
+            <h3 class="text-lg font-semibold mb-4">Statistik Cepat</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="quick-stats">
+                <div class="glass rounded-xl p-4 text-center">
+                    <p class="text-gray-400 text-sm">Hari Ini</p>
+                    <p class="text-xl font-bold text-primary-400" id="today-income">Rp 0</p>
+                </div>
+                <div class="glass rounded-xl p-4 text-center">
+                    <p class="text-gray-400 text-sm">Minggu Ini</p>
+                    <p class="text-xl font-bold text-green-400">-</p>
+                </div>
+                <div class="glass rounded-xl p-4 text-center">
+                    <p class="text-gray-400 text-sm">Bulan Ini</p>
+                    <p class="text-xl font-bold text-blue-400">-</p>
+                </div>
+                <div class="glass rounded-xl p-4 text-center">
+                    <p class="text-gray-400 text-sm">Total Pesanan</p>
+                    <p class="text-xl font-bold text-yellow-400" id="today-orders">0</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+// Load stats
+fetch('/api/stats')
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById('today-income').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(data.total_income);
+        document.getElementById('today-orders').textContent = data.total_orders;
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block title %}Analitik - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    {% set active_page = 'analytics' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Analitik</h1>
+                <p class="text-gray-400">Data lengkap performa restoran dengan persentase real</p>
+            </div>
+            {% if is_owner %}
+            <!-- Filter by City / Brand / Branch -->
+            <form method="GET" action="{{ url_for('analytics') }}" class="flex flex-wrap items-center gap-2">
+                <select name="city_id" onchange="this.form.submit()"
+                        class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    <option value="">Semua Kota</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}" {% if filter_city_id == city.id|string %}selected{% endif %}>{{ city.name }}</option>
+                    {% endfor %}
+                </select>
+                <select name="brand_id" onchange="this.form.submit()"
+                        class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    <option value="">Semua Brand</option>
+                    {% for brand in brands %}
+                    <option value="{{ brand.id }}" {% if filter_brand_id == brand.id|string %}selected{% endif %}>{{ brand.name }}</option>
+                    {% endfor %}
+                </select>
+                <select name="branch_id" onchange="this.form.submit()"
+                        class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    <option value="">Semua Cabang</option>
+                    {% for branch in branches %}
+                    <option value="{{ branch.id }}" {% if filter_branch_id == branch.id|string %}selected{% endif %}>{{ branch.name }}</option>
+                    {% endfor %}
+                </select>
+                {% if filter_city_id or filter_brand_id or filter_branch_id %}
+                <a href="{{ url_for('analytics') }}" class="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm">
+                    <i class="fas fa-times mr-1"></i>Reset
+                </a>
+                {% endif %}
+            </form>
+            {% endif %}
+        </header>
+        
+        <!-- KPI Cards Row 1: Today -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <!-- Revenue Today -->
+            <div class="glass-card rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-gray-400 text-sm">Pendapatan Hari Ini</p>
+                    <div class="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                        <i class="fas fa-wallet text-green-400"></i>
+                    </div>
+                </div>
+                <p class="text-2xl font-bold">{{ today_revenue|format_currency }}</p>
+                <div class="mt-2 flex items-center text-sm">
+                    {% if revenue_growth >= 0 %}
+                    <span class="text-green-400"><i class="fas fa-arrow-up mr-1"></i>{{ revenue_growth }}%</span>
+                    {% else %}
+                    <span class="text-red-400"><i class="fas fa-arrow-down mr-1"></i>{{ revenue_growth|abs }}%</span>
+                    {% endif %}
+                    <span class="text-gray-500 ml-2">vs kemarin ({{ yesterday_revenue|format_currency }})</span>
+                </div>
+            </div>
+            
+            <!-- Orders Today -->
+            <div class="glass-card rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-gray-400 text-sm">Pesanan Hari Ini</p>
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                        <i class="fas fa-shopping-cart text-blue-400"></i>
+                    </div>
+                </div>
+                <p class="text-2xl font-bold">{{ today_order_count }}</p>
+                <div class="mt-2 flex items-center text-sm">
+                    {% if order_growth >= 0 %}
+                    <span class="text-green-400"><i class="fas fa-arrow-up mr-1"></i>{{ order_growth }}%</span>
+                    {% else %}
+                    <span class="text-red-400"><i class="fas fa-arrow-down mr-1"></i>{{ order_growth|abs }}%</span>
+                    {% endif %}
+                    <span class="text-gray-500 ml-2">vs kemarin</span>
+                </div>
+            </div>
+            
+            <!-- Avg Transaction -->
+            <div class="glass-card rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-gray-400 text-sm">Rata-rata Transaksi</p>
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                        <i class="fas fa-chart-line text-purple-400"></i>
+                    </div>
+                </div>
+                <p class="text-2xl font-bold">{{ today_avg|format_currency }}</p>
+                <div class="mt-2 flex items-center text-sm">
+                    {% if avg_growth >= 0 %}
+                    <span class="text-green-400"><i class="fas fa-arrow-up mr-1"></i>{{ avg_growth }}%</span>
+                    {% else %}
+                    <span class="text-red-400"><i class="fas fa-arrow-down mr-1"></i>{{ avg_growth|abs }}%</span>
+                    {% endif %}
+                    <span class="text-gray-500 ml-2">vs kemarin</span>
+                </div>
+            </div>
+            
+            <!-- Cancel Rate -->
+            <div class="glass-card rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-gray-400 text-sm">Tingkat Pembatalan</p>
+                    <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                        <i class="fas fa-times-circle text-red-400"></i>
+                    </div>
+                </div>
+                <p class="text-2xl font-bold">{{ today_cancel_rate }}%</p>
+                <div class="mt-2 text-sm">
+                    <span class="text-gray-500">Hari ini</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- KPI Cards Row 2: Period Comparison -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="glass-card rounded-2xl p-5">
+                <p class="text-gray-400 text-xs mb-1">Minggu Ini</p>
+                <p class="text-xl font-bold">{{ week_revenue|format_currency }}</p>
+                <div class="mt-1 text-sm">
+                    {% if week_growth >= 0 %}
+                    <span class="text-green-400"><i class="fas fa-arrow-up mr-1"></i>{{ week_growth }}%</span>
+                    {% else %}
+                    <span class="text-red-400"><i class="fas fa-arrow-down mr-1"></i>{{ week_growth|abs }}%</span>
+                    {% endif %}
+                    <span class="text-gray-500 ml-1">vs minggu lalu</span>
+                </div>
+            </div>
+            <div class="glass-card rounded-2xl p-5">
+                <p class="text-gray-400 text-xs mb-1">Bulan Ini</p>
+                <p class="text-xl font-bold">{{ month_revenue|format_currency }}</p>
+                <div class="mt-1 text-sm">
+                    {% if month_growth >= 0 %}
+                    <span class="text-green-400"><i class="fas fa-arrow-up mr-1"></i>{{ month_growth }}%</span>
+                    {% else %}
+                    <span class="text-red-400"><i class="fas fa-arrow-down mr-1"></i>{{ month_growth|abs }}%</span>
+                    {% endif %}
+                    <span class="text-gray-500 ml-1">vs bulan lalu</span>
+                </div>
+            </div>
+            <div class="glass-card rounded-2xl p-5">
+                <p class="text-gray-400 text-xs mb-1">Total Pengeluaran (Bulan Ini)</p>
+                <p class="text-xl font-bold text-red-400">{{ total_expenses|format_currency }}</p>
+            </div>
+            <div class="glass-card rounded-2xl p-5">
+                <p class="text-gray-400 text-xs mb-1">Laba Bersih (Margin {{ profit_margin }}%)</p>
+                <p class="text-xl font-bold {% if net_profit >= 0 %}text-green-400{% else %}text-red-400{% endif %}">{{ net_profit|format_currency }}</p>
+            </div>
+        </div>
+        
+        <!-- Revenue Chart -->
+        <div class="glass-card rounded-2xl p-6 mb-6">
+            <h3 class="text-lg font-semibold mb-4">Tren Pendapatan (30 Hari Terakhir)</h3>
+            <canvas id="revenueChart" height="80"></canvas>
+        </div>
+        
+        <!-- 3 Column Analytics -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Payment Method Breakdown -->
+            <div class="glass-card rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Metode Pembayaran</h3>
+                <canvas id="paymentChart" height="200"></canvas>
+                <div class="mt-4 space-y-2">
+                    {% for method, data in payment_methods.items() %}
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full {% if method == 'cash' %}bg-green-400{% elif method == 'midtrans' %}bg-blue-400{% elif method == 'transfer' %}bg-purple-400{% else %}bg-gray-400{% endif %}"></span>
+                            <span class="text-gray-300 capitalize">{{ method }}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-semibold">{{ data.percentage }}%</span>
+                            <span class="text-gray-500 ml-1">({{ data.count }}x)</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center text-sm">Belum ada data</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Order Source Breakdown -->
+            <div class="glass-card rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Sumber Pesanan</h3>
+                <canvas id="sourceChart" height="200"></canvas>
+                <div class="mt-4 space-y-2">
+                    {% for src, data in source_breakdown.items() %}
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full {% if src == 'pos' %}bg-blue-400{% elif src == 'grabfood' %}bg-green-400{% elif src == 'gofood' %}bg-red-400{% elif src == 'shopeefood' %}bg-orange-400{% elif src == 'online' %}bg-purple-400{% else %}bg-gray-400{% endif %}"></span>
+                            <span class="text-gray-300 uppercase">{{ src }}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-semibold">{{ data.percentage }}%</span>
+                            <span class="text-gray-500 ml-1">({{ data.total|format_currency }})</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center text-sm">Belum ada data</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Order Type Breakdown -->
+            <div class="glass-card rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Tipe Pesanan</h3>
+                <canvas id="typeChart" height="200"></canvas>
+                <div class="mt-4 space-y-2">
+                    {% for otype, data in type_breakdown.items() %}
+                    <div class="flex items-center justify-between text-sm">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full {% if otype == 'dine_in' %}bg-blue-400{% elif otype == 'takeaway' %}bg-yellow-400{% else %}bg-purple-400{% endif %}"></span>
+                            <span class="text-gray-300">{% if otype == 'dine_in' %}Dine In{% elif otype == 'takeaway' %}Takeaway{% else %}Online{% endif %}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-semibold">{{ data.percentage }}%</span>
+                            <span class="text-gray-500 ml-1">({{ data.count }}x)</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center text-sm">Belum ada data</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 2 Column: Top Items + Hourly -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Top 10 Menu Items -->
+            <div class="glass-card rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-4">Top 10 Menu Terlaris (Bulan Ini)</h3>
+                <div class="space-y-3">
+                    {% for name, data in top_items.items() %}
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-medium truncate max-w-[60%]">{{ name }}</span>
+                            <span class="text-sm text-gray-400">{{ data.qty }}x · {{ data.percentage }}%</span>
+                        </div>
+                        <div class="w-full bg-white/10 rounded-full h-2">
+                            <div class="bg-gradient-to-r from-primary-500 to-accent-500 h-2 rounded-full" style="width: {{ data.percentage }}%"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ data.total|format_currency }}</p>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center text-sm">Belum ada data</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Hourly Distribution -->
+            <div class="glass-card rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-2">Distribusi Jam Ramai (Minggu Ini)</h3>
+                <p class="text-sm text-gray-400 mb-4">Jam paling ramai: <span class="text-primary-400 font-bold">{{ '%02d:00' % peak_hour }}</span></p>
+                <canvas id="hourlyChart" height="200"></canvas>
+            </div>
+        </div>
+        
+        <!-- Category Performance -->
+        <div class="glass-card rounded-2xl p-6 mb-6">
+            <h3 class="text-lg font-semibold mb-4">Performa Kategori (Bulan Ini)</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-white/5">
+                        <tr>
+                            <th class="text-left p-3 text-sm font-medium text-gray-400">Kategori</th>
+                            <th class="text-right p-3 text-sm font-medium text-gray-400">Qty Terjual</th>
+                            <th class="text-right p-3 text-sm font-medium text-gray-400">Pendapatan</th>
+                            <th class="text-right p-3 text-sm font-medium text-gray-400">Kontribusi</th>
+                            <th class="p-3 text-sm font-medium text-gray-400">Proporsi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        {% for cat, data in category_perf.items() %}
+                        <tr class="hover:bg-white/5">
+                            <td class="p-3 font-medium">{{ cat }}</td>
+                            <td class="p-3 text-right text-gray-300">{{ data.qty }}</td>
+                            <td class="p-3 text-right text-primary-400 font-semibold">{{ data.total|format_currency }}</td>
+                            <td class="p-3 text-right font-semibold">{{ data.percentage }}%</td>
+                            <td class="p-3">
+                                <div class="w-full bg-white/10 rounded-full h-2">
+                                    <div class="bg-primary-500 h-2 rounded-full" style="width: {{ data.percentage }}%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="p-8 text-center text-gray-500">Belum ada data</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+const chartDefaults = {
+    color: '#9ca3af',
+    borderColor: 'rgba(255,255,255,0.1)'
+};
+Chart.defaults.color = chartDefaults.color;
+Chart.defaults.borderColor = chartDefaults.borderColor;
+
+// Revenue Trend Chart (Line)
+new Chart(document.getElementById('revenueChart'), {
+    type: 'line',
+    data: {
+        labels: {{ daily_labels|tojson }},
+        datasets: [{
+            label: 'Pendapatan',
+            data: {{ daily_revenues|tojson }},
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249,115,22,0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 2,
+            pointHoverRadius: 5
+        }, {
+            label: 'Jumlah Pesanan',
+            data: {{ daily_orders_list|tojson }},
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            fill: false,
+            tension: 0.3,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            yAxisID: 'y1'
+        }]
+    },
+    options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+            y: {
+                type: 'linear', position: 'left',
+                ticks: { callback: v => 'Rp ' + new Intl.NumberFormat('id-ID').format(v) }
+            },
+            y1: {
+                type: 'linear', position: 'right',
+                grid: { drawOnChartArea: false },
+                ticks: { stepSize: 1 }
+            }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(ctx) {
+                        if (ctx.datasetIndex === 0) return 'Pendapatan: Rp ' + new Intl.NumberFormat('id-ID').format(ctx.raw);
+                        return 'Pesanan: ' + ctx.raw;
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Payment Method Doughnut
+const paymentData = {{ payment_methods|tojson }};
+const paymentLabels = Object.keys(paymentData).map(k => k.charAt(0).toUpperCase() + k.slice(1));
+const paymentValues = Object.values(paymentData).map(v => v.count);
+const paymentColors = ['#22c55e', '#3b82f6', '#a855f7', '#f59e0b', '#ef4444'];
+
+new Chart(document.getElementById('paymentChart'), {
+    type: 'doughnut',
+    data: {
+        labels: paymentLabels,
+        datasets: [{
+            data: paymentValues,
+            backgroundColor: paymentColors.slice(0, paymentLabels.length),
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '60%',
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8 } } }
+    }
+});
+
+// Source Doughnut
+const sourceData = {{ source_breakdown|tojson }};
+const sourceLabels = Object.keys(sourceData).map(k => k.toUpperCase());
+const sourceValues = Object.values(sourceData).map(v => v.count);
+const sourceColors = ['#3b82f6', '#22c55e', '#ef4444', '#f97316', '#a855f7', '#f59e0b'];
+
+new Chart(document.getElementById('sourceChart'), {
+    type: 'doughnut',
+    data: {
+        labels: sourceLabels,
+        datasets: [{
+            data: sourceValues,
+            backgroundColor: sourceColors.slice(0, sourceLabels.length),
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '60%',
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8 } } }
+    }
+});
+
+// Type Doughnut
+const typeData = {{ type_breakdown|tojson }};
+const typeLabels = Object.keys(typeData).map(k => {
+    if (k === 'dine_in') return 'Dine In';
+    if (k === 'takeaway') return 'Takeaway';
+    return 'Online';
+});
+const typeValues = Object.values(typeData).map(v => v.count);
+const typeColors = ['#3b82f6', '#f59e0b', '#a855f7'];
+
+new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: {
+        labels: typeLabels,
+        datasets: [{
+            data: typeValues,
+            backgroundColor: typeColors.slice(0, typeLabels.length),
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '60%',
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 8 } } }
+    }
+});
+
+// Hourly Distribution Bar
+const hourlyData = {{ hourly_dist|tojson }};
+const hourlyLabels = Object.keys(hourlyData).map(h => h.toString().padStart(2, '0') + ':00');
+const hourlyValues = Object.values(hourlyData);
+
+new Chart(document.getElementById('hourlyChart'), {
+    type: 'bar',
+    data: {
+        labels: hourlyLabels,
+        datasets: [{
+            label: 'Pesanan',
+            data: hourlyValues,
+            backgroundColor: hourlyValues.map((v, i) => i == {{ peak_hour }} ? '#f97316' : 'rgba(59,130,246,0.5)'),
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } },
+            x: { ticks: { maxRotation: 90, font: { size: 10 } } }
+        }
+    }
+});
+</script>
+{% endblock %}

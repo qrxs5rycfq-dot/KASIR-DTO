@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Laporan Pendapatan - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    {% set active_page = 'income_report' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Laporan Pendapatan</h1>
+                <p class="text-gray-400">Periode: {{ start_date }} - {{ end_date }}</p>
+            </div>
+            <a href="{{ url_for('reports') }}" class="text-gray-400 hover:text-white">
+                <i class="fas fa-arrow-left mr-2"></i>Kembali
+            </a>
+        </header>
+        
+        <!-- Filter -->
+        <div class="glass-card rounded-2xl p-4 mb-6">
+            <form method="GET" class="flex items-center space-x-4">
+                <div>
+                    <label class="text-sm text-gray-400 block mb-1">Dari Tanggal</label>
+                    <input type="date" name="start_date" value="{{ start_date }}" 
+                           class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 block mb-1">Sampai Tanggal</label>
+                    <input type="date" name="end_date" value="{{ end_date }}"
+                           class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white">
+                </div>
+                <button type="submit" class="btn-primary px-4 py-2 rounded-lg mt-5">
+                    <i class="fas fa-filter mr-2"></i>Filter
+                </button>
+            </form>
+        </div>
+        
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-3 gap-6 mb-6">
+            <div class="glass-card rounded-2xl p-6">
+                <p class="text-gray-400 text-sm">Total Pendapatan</p>
+                <p class="text-3xl font-bold text-green-400">{{ total_income|format_currency }}</p>
+            </div>
+            <div class="glass-card rounded-2xl p-6">
+                <p class="text-gray-400 text-sm">Total Pesanan</p>
+                <p class="text-3xl font-bold text-blue-400">{{ total_orders }}</p>
+            </div>
+            <div class="glass-card rounded-2xl p-6">
+                <p class="text-gray-400 text-sm">Rata-rata per Pesanan</p>
+                <p class="text-3xl font-bold text-yellow-400">{{ (total_income / total_orders if total_orders > 0 else 0)|int|format_currency }}</p>
+            </div>
+        </div>
+        
+        <!-- Daily Breakdown -->
+        <div class="glass-card rounded-2xl p-6 mb-6">
+            <h3 class="text-lg font-semibold mb-4">Pendapatan Harian</h3>
+            <div class="space-y-3">
+                {% for date, data in daily_income.items()|sort(reverse=True) %}
+                <div class="flex items-center justify-between p-3 glass rounded-xl">
+                    <div>
+                        <p class="font-medium">{{ date }}</p>
+                        <p class="text-sm text-gray-400">{{ data.orders }} pesanan</p>
+                    </div>
+                    <p class="text-lg font-bold text-primary-400">{{ data.income|format_currency }}</p>
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center py-4">Tidak ada data</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Orders Table -->
+        <div class="glass-card rounded-2xl overflow-hidden">
+            <div class="p-4 border-b border-white/10 flex items-center justify-between">
+                <h3 class="font-semibold">Detail Pesanan</h3>
+                <div class="flex space-x-2">
+                    <a href="{{ url_for('export_pdf', start_date=start_date, end_date=end_date) }}" 
+                       class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30">
+                        <i class="fas fa-file-pdf mr-1"></i>PDF
+                    </a>
+                    <a href="{{ url_for('export_excel', start_date=start_date, end_date=end_date) }}"
+                       class="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-sm hover:bg-green-500/30">
+                        <i class="fas fa-file-excel mr-1"></i>Excel
+                    </a>
+                </div>
+            </div>
+            <table class="w-full">
+                <thead class="bg-white/5">
+                    <tr>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Order ID</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Tanggal</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Subtotal</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for order in orders %}
+                    <tr class="hover:bg-white/5">
+                        <td class="p-4 font-medium">{{ order.order_number }}</td>
+                        <td class="p-4 text-gray-300">{{ order.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="p-4 text-gray-300">{{ order.subtotal|format_currency }}</td>
+                        <td class="p-4 text-primary-400 font-semibold">{{ order.total|format_currency }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="p-8 text-center text-gray-500">Tidak ada pesanan dalam periode ini</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}

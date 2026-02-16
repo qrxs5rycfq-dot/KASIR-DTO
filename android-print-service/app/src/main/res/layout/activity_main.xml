@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- Top Bar dengan Desain Modern -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/top_bar_gradient">
+
+        <!-- Baris Pertama: Settings, Status, Toggle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:gravity="center_vertical"
+            android:elevation="4dp">
+
+            <Button
+                android:id="@+id/btnSettings"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:text="⚙️"
+                android:textSize="20sp"
+                android:textColor="@android:color/white"
+                android:background="@drawable/button_circular"
+                android:backgroundTint="#334155"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:padding="0dp" />
+
+            <TextView
+                android:id="@+id/txtServiceStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🔴 PRINT SERVICE MATI"
+                android:textColor="#f87171"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:textStyle="bold"
+                android:letterSpacing="0.02"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp" />
+
+            <Button
+                android:id="@+id/btnToggleService"
+                android:layout_width="90dp"
+                android:layout_height="36dp"
+                android:text="▶ START"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:background="@drawable/button_rounded"
+                android:backgroundTint="#059669"
+                android:letterSpacing="0.03"
+                android:minWidth="0dp"
+                android:paddingHorizontal="12dp" />
+        </LinearLayout>
+
+        <!-- Baris Kedua: Print Statistics dengan Card Style -->
+        <TextView
+            android:id="@+id/txtPrintStats"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📄 Cetak: 0  |  ❌ Gagal: 0"
+            android:textColor="#cbd5e1"
+            android:textSize="10sp"
+            android:gravity="center"
+            android:paddingBottom="8dp"
+            android:paddingTop="2dp"
+            android:visibility="gone"
+            android:background="#1e293b"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="6dp"
+            android:paddingVertical="6dp"
+            android:layout_marginTop="2dp"
+            tools:ignore="SmallSp" />
+    </LinearLayout>
+
+    <!-- Settings Panel dengan Desain Modern dan Card Style -->
+    <ScrollView
+        android:id="@+id/settingsPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#0f172a"
+        android:visibility="gone"
+        android:fillViewport="true"
+        android:elevation="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- Header Settings dengan Icon -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="20dp">
+
+                <TextView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:text="⚙️"
+                    android:textSize="28sp"
+                    android:gravity="center"
+                    android:background="#334155"
+                    android:layout_marginEnd="12dp"
+                    android:textColor="@android:color/white" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Pengaturan Printer"
+                        android:textColor="@android:color/white"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Konfigurasi koneksi printer dan server"
+                        android:textColor="#94a3b8"
+                        android:textSize="12sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Card: Server Configuration -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌐 SERVER CONFIGURATION"
+                    android:textColor="#60a5fa"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- Server URL -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="URL Server (VPS)"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/editServerUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="contoh: http://10.111.108.37:8000"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="#64748b"
+                    android:background="@drawable/edittext_background"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="12dp"
+                    android:textSize="14sp"
+                    android:inputType="textUri"
+                    android:layout_marginBottom="12dp"
+                    android:drawableStart="@drawable/ic_link"
+                    android:drawablePadding="8dp" />
+
+                <!-- Username -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Username"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/editUsername"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="Masukkan username"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="#64748b"
+                    android:background="@drawable/edittext_background"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="12dp"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="12dp"
+                    android:drawableStart="@drawable/ic_user"
+                    android:drawablePadding="8dp" />
+
+                <!-- Password -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Password"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/editPassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="••••••••"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="#64748b"
+                    android:background="@drawable/edittext_background"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="12dp"
+                    android:textSize="14sp"
+                    android:inputType="textPassword"
+                    android:layout_marginBottom="8dp"
+                    android:drawableStart="@drawable/ic_lock"
+                    android:drawablePadding="8dp" />
+            </LinearLayout>
+
+            <!-- Card: Printer Type Selection -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🖨️ PRINTER TYPE"
+                    android:textColor="#60a5fa"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05"
+                    android:layout_marginBottom="12dp" />
+
+                <RadioGroup
+                    android:id="@+id/radioPrinterType"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp">
+
+                    <RadioButton
+                        android:id="@+id/radioBluetooth"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="🔵 Bluetooth"
+                        android:textColor="#e2e8f0"
+                        android:buttonTint="#3b82f6"
+                        android:checked="true"
+                        android:textSize="14sp"
+                        android:gravity="center"
+                        android:background="@drawable/radio_button_left"
+                        android:padding="8dp" />
+
+                    <RadioButton
+                        android:id="@+id/radioLan"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="🌐 LAN / WiFi"
+                        android:textColor="#e2e8f0"
+                        android:buttonTint="#3b82f6"
+                        android:textSize="14sp"
+                        android:gravity="center"
+                        android:background="@drawable/radio_button_right"
+                        android:padding="8dp" />
+                </RadioGroup>
+            </LinearLayout>
+
+            <!-- Card: Bluetooth Printer Section -->
+            <LinearLayout
+                android:id="@+id/sectionBluetooth"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp"
+                android:visibility="visible">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📱 BLUETOOTH PRINTER"
+                    android:textColor="#60a5fa"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Pilih Printer Bluetooth yang Tersedia"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="4dp">
+
+                    <Spinner
+                        android:id="@+id/spinnerPrinter"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/spinner_background"
+                        android:paddingHorizontal="12dp"
+                        android:popupBackground="#1e293b"
+                        android:textColor="@android:color/white"
+                        android:textSize="14sp" />
+
+                    <Button
+                        android:id="@+id/btnRefreshPrinters"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:text="🔄"
+                        android:textSize="18sp"
+                        android:background="@drawable/button_rounded"
+                        android:backgroundTint="#334155"
+                        android:layout_marginStart="8dp"
+                        android:minWidth="0dp"
+                        android:padding="0dp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 Pastikan Bluetooth HP aktif dan printer sudah dipasangkan"
+                    android:textColor="#64748b"
+                    android:textSize="11sp"
+                    android:layout_marginTop="8dp"
+                    android:drawableStart="@drawable/ic_info"
+                    android:drawablePadding="4dp" />
+            </LinearLayout>
+
+            <!-- Card: LAN Printer Section -->
+            <LinearLayout
+                android:id="@+id/sectionLan"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌍 LAN PRINTER"
+                    android:textColor="#60a5fa"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.05"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Alamat IP dan Port Printer"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp"
+                    android:layout_marginBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/editLanAddress"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="192.168.1.100:9100"
+                    android:textColor="@android:color/white"
+                    android:textColorHint="#64748b"
+                    android:background="@drawable/edittext_background"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="12dp"
+                    android:textSize="14sp"
+                    android:inputType="text"
+                    android:layout_marginBottom="8dp"
+                    android:drawableStart="@drawable/ic_network"
+                    android:drawablePadding="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📌 Port default printer thermal: 9100\n📌 Pastikan printer dan HP dalam satu jaringan WiFi"
+                    android:textColor="#64748b"
+                    android:textSize="11sp"
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingExtra="2dp" />
+            </LinearLayout>
+
+            <!-- Save Button dengan Desain Menarik -->
+            <Button
+                android:id="@+id/btnSave"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:text="💾 SIMPAN PENGATURAN"
+                android:textColor="@android:color/white"
+                android:background="@drawable/button_gradient"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:letterSpacing="0.05"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:elevation="4dp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- SwipeRefreshLayout untuk Pull-to-Refresh -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        tools:ignore="MissingClass">
+
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+</LinearLayout>

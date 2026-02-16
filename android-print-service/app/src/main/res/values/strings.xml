@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App Name -->
+    <string name="app_name">Dapoer Teras Obor POS</string>
+
+    <!-- Splash Screen -->
+    <string name="splash_brand">Dapoer Teras Obor</string>
+    <string name="splash_tagline">Sistem Kasir POS</string>
+    <string name="splash_version">v2.0.0</string>
+    <string name="splash_loading">Memuat…</string>
+
+    <!-- Status Messages (untuk txtSplashStatus) -->
+    <string name="status_loading">Memuat…</string>
+    <string name="status_config">🔧 Menunggu konfigurasi…</string>
+    <string name="status_service_start">🔄 Print Service akan dimulai…</string>
+    <string name="status_ready">✅ Siap digunakan</string>
+
+    <!-- Icons & Buttons (yang sudah ada) -->
+    <string name="iconsetting">⚙️</string>
+    <string name="iconstart">▶ START</string>
+    <string name="iconstop">⏹ STOP</string>
+    <string name="iconrefresh">🔄</string>
+    <string name="iconsave">💾</string>
+
+    <!-- Service Status (yang sudah ada) -->
+    <string name="iconprintmati">🔴 PRINT SERVICE MATI</string>
+    <string name="iconprintaktif">🟢 PRINT SERVICE AKTIF</string>
+    <string name="iconcetakdangagal">📄 Cetak: %d | ❌ Gagal: %d</string>
+
+    <!-- Settings Title (yang sudah ada) -->
+    <string name="iconpengaturanprint">🖨️ Pengaturan Printer</string>
+
+    <!-- Settings Labels -->
+    <string name="server_url_label">URL Server (VPS)</string>
+    <string name="username_label">Username</string>
+    <string name="password_label">Password</string>
+    <string name="printer_type_label">Jenis Printer</string>
+    <string name="printer_bluetooth">🔵 Bluetooth</string>
+    <string name="printer_lan">🌐 LAN / WiFi</string>
+    <string name="select_printer_label">Pilih Printer Bluetooth</string>
+    <string name="lan_address_label">IP:Port Printer LAN</string>
+    <string name="lan_address_hint">192.168.1.50:9100</string>
+    <string name="lan_info">💡 Port default printer thermal: 9100. Pastikan printer dan HP dalam satu jaringan WiFi.</string>
+    <string name="save_button">💾 Simpan Pengaturan</string>
+
+    <!-- Placeholders -->
+    <string name="server_url_hint">https://pos.domain.com</string>
+    <string name="username_hint">kasir</string>
+    <string name="password_hint">••••••••</string>
+
+    <!-- Messages -->
+    <string name="save_success">Pengaturan disimpan</string>
+    <string name="url_required">URL Server tidak boleh kosong</string>
+    <string name="username_password_required">Username dan password harus diisi</string>
+    <string name="printer_required">Pilih printer Bluetooth terlebih dahulu</string>
+    <string name="lan_required">Alamat IP printer LAN tidak boleh kosong</string>
+    <string name="service_started">Print Service dimulai</string>
+    <string name="service_stopped">Print Service dihentikan</string>
+    <string name="service_starting">Print Service sedang dimulai…</string>
+    <string name="service_stopping">Print Service sedang dihentikan…</string>
+
+    <!-- Bluetooth Printer List -->
+    <string name="bluetooth_not_available">❌ Bluetooth tidak tersedia</string>
+    <string name="bluetooth_disabled">⚠️ Bluetooth mati, nyalakan dulu</string>
+    <string name="bluetooth_permission_needed">⚠️ Izin Bluetooth diperlukan</string>
+    <string name="no_printer_paired">📭 Tidak ada printer terpasang</string>
+    <string name="printer_item">🖨️ %s (%s)</string>
+
+    <!-- Permissions -->
+    <string name="permission_title">Izin Diperlukan</string>
+    <string name="permission_message">Aplikasi membutuhkan beberapa izin untuk berfungsi dengan baik. Silakan berikan izin di Pengaturan.</string>
+    <string name="permission_granted">Semua izin diberikan</string>
+    <string name="open_settings">Buka Pengaturan</string>
+    <string name="close">Tutup</string>
+
+    <!-- Exit Dialog -->
+    <string name="exit_title">Keluar Aplikasi?</string>
+    <string name="exit_message">Print Service akan tetap berjalan di latar belakang.</string>
+    <string name="exit">Keluar</string>
+    <string name="cancel">Batal</string>
+
+    <!-- Errors -->
+    <string name="error_auth">Autentikasi gagal</string>
+    <string name="error_connection">Koneksi gagal</string>
+    <string name="error_printer">Printer tidak terhubung</string>
+    <string name="error_unknown">Terjadi kesalahan</string>
+
+    <!-- WebView -->
+    <string name="webview_loading">Memuat POS…</string>
+    <string name="webview_error">Gagal memuat halaman</string>
+    <string name="webview_no_url">Tekan ⚙️ untuk mengatur URL server</string>
+
+    <!-- JavaScript Bridge -->
+    <string name="js_printer_not_configured">Belum dikonfigurasi</string>
+    <string name="js_printer_prefix">Printer: %s</string>
+</resources>

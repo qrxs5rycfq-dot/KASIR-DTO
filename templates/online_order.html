@@ -1,0 +1,704 @@
+{% extends "base.html" %}
+
+{% block title %}Pesan Online - Meja {{ table.number }} - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="min-h-screen pb-32 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <!-- Header dengan efek gradient -->
+    <header class="sticky top-0 z-40 backdrop-blur-xl bg-gray-900/80 border-b border-white/5 safe-area-top">
+        <div class="max-w-lg mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 p-0.5 shadow-lg shadow-primary-500/20">
+                        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="w-full h-full rounded-xl object-contain bg-gray-900">
+                    </div>
+                    <div>
+                        <h1 class="font-display font-bold text-white text-base">Dapoer Teras Obor</h1>
+                        <p class="text-xs text-gray-400 flex items-center">
+                            <i class="fas fa-qrcode mr-1 text-primary-400"></i>Scan & Order
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-primary-500/20 to-primary-600/20 border border-primary-500/30">
+                        <span class="text-primary-300 font-bold text-sm flex items-center">
+                            <i class="fas fa-chair mr-1.5"></i>{{ table.number }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Search Bar -->
+    <div class="sticky top-[60px] z-30 backdrop-blur-xl bg-gray-900/60 px-4 py-3 border-b border-white/5">
+        <div class="max-w-lg mx-auto">
+            <div class="relative">
+                <input type="text" id="search-input" placeholder="Cari menu favorit kamu..." 
+                       oninput="searchMenu(this.value)"
+                       class="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                <button onclick="clearSearch()" id="clear-search" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Categories dengan horizontal scroll yang lebih smooth -->
+    <div class="sticky top-[124px] z-20 backdrop-blur-xl bg-gray-900/60 px-4 py-2.5 border-b border-white/5">
+        <div class="max-w-lg mx-auto">
+            <div class="flex space-x-2 overflow-x-auto pb-1 scrollbar-hide" style="-webkit-overflow-scrolling: touch;">
+                <button onclick="filterCategory('all')" class="category-btn shrink-0 px-4 py-2 rounded-full bg-primary-500 text-white text-sm font-medium transition-all duration-200 active:scale-95" data-category="all">
+                    <i class="fas fa-utensils mr-1.5"></i>Semua
+                </button>
+                {% for category in categories %}
+                <button onclick="filterCategory({{ category.id }})" class="category-btn shrink-0 px-4 py-2 rounded-full bg-white/5 text-gray-400 text-sm font-medium border border-white/10 transition-all duration-200 hover:bg-white/10 active:scale-95" data-category="{{ category.id }}">
+                    {{ category.name }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- No Results Message -->
+    <div id="no-results" class="hidden max-w-lg mx-auto px-4 py-16 text-center">
+        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
+            <i class="fas fa-search text-3xl text-gray-500"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-white mb-2">Menu tidak ditemukan</h3>
+        <p class="text-gray-400 text-sm">Coba kata kunci lain atau lihat semua menu</p>
+    </div>
+    
+    <!-- Menu Grid - Modern Card Design -->
+    <div class="max-w-lg mx-auto px-4 py-4">
+        <div id="menu-list" class="grid grid-cols-2 gap-3">
+            {% for item in menu_items %}
+            <div class="menu-item group relative bg-gradient-to-br from-white/5 to-white/[0.02] rounded-2xl overflow-hidden border border-white/5 transition-all duration-300 hover:border-primary-500/30 active:scale-[0.98]" 
+                 data-id="{{ item.id }}"
+                 data-category="{{ item.category_id }}"
+                 data-name="{{ item.name|lower }}"
+                 data-description="{{ item.description|lower if item.description else '' }}">
+                <!-- Image Container -->
+                <div class="relative aspect-square overflow-hidden">
+                    <img src="{{ item.image }}" alt="{{ item.name }}" 
+                         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                         loading="lazy">
+                    <!-- Overlay Gradient -->
+                    <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-60"></div>
+                    
+                    <!-- Popular Badge -->
+                    {% if item.is_popular %}
+                    <div class="absolute top-2 left-2 px-2 py-1 rounded-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-[10px] font-bold flex items-center shadow-lg">
+                        <i class="fas fa-fire mr-1"></i>HITS
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Options Icons -->
+                    <div class="absolute top-2 right-2 flex space-x-1">
+                        {% if item.has_spicy_option %}
+                        <span class="w-6 h-6 rounded-full bg-red-500/80 backdrop-blur flex items-center justify-center">
+                            <i class="fas fa-pepper-hot text-white text-[10px]"></i>
+                        </span>
+                        {% endif %}
+                        {% if item.has_temperature_option %}
+                        <span class="w-6 h-6 rounded-full bg-blue-500/80 backdrop-blur flex items-center justify-center">
+                            <i class="fas fa-snowflake text-white text-[10px]"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Price Tag on Image -->
+                    <div class="absolute bottom-2 left-2 right-2">
+                        <span class="inline-block px-2 py-1 rounded-lg bg-primary-500/90 backdrop-blur text-white text-xs font-bold">
+                            {{ item.price|format_currency }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Content -->
+                <div class="p-3">
+                    <h3 class="font-semibold text-white text-sm line-clamp-2 leading-tight mb-2">{{ item.name }}</h3>
+                    
+                    <!-- Add Button -->
+                    <button onclick='addToCart({{ item.id }}, {{ item.name|tojson }}, {{ item.price }}, {{ "true" if item.has_spicy_option else "false" }}, {{ "true" if item.has_temperature_option else "false" }})'
+                            class="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all duration-200 hover:shadow-lg hover:shadow-primary-500/30 active:scale-95"
+                        <i class="fas fa-plus"></i>
+                        <span>Tambah</span>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Floating Cart Button - Improved for Mobile -->
+    <div id="cart-button" class="fixed bottom-4 left-4 right-4 z-50 hidden max-w-lg mx-auto">
+        <button onclick="openCart()" class="w-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-2xl p-4 flex items-center justify-between shadow-2xl shadow-primary-500/30 active:scale-[0.98] transition-transform">
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                        <i class="fas fa-shopping-bag text-white text-lg"></i>
+                    </div>
+                    <span id="cart-count" class="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full text-primary-600 text-xs flex items-center justify-center font-bold shadow-lg">0</span>
+                </div>
+                <div class="text-left">
+                    <p class="text-white/70 text-xs">Total Pesanan</p>
+                    <p id="cart-total" class="font-bold text-white text-lg">Rp 0</p>
+                </div>
+            </div>
+            <div class="bg-white text-primary-600 px-5 py-2.5 rounded-xl font-bold text-sm flex items-center">
+                <span>Checkout</span>
+                <i class="fas fa-arrow-right ml-2"></i>
+            </div>
+        </button>
+    </div>
+</div>
+
+<!-- Cart Modal - Improved Bottom Sheet -->
+<div id="cart-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden">
+    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-b from-gray-800 to-gray-900 rounded-t-3xl max-h-[90vh] flex flex-col animate-slide-up safe-area-bottom">
+        <!-- Handle Bar -->
+        <div class="flex justify-center pt-3 pb-2">
+            <div class="w-10 h-1 rounded-full bg-white/20"></div>
+        </div>
+        
+        <!-- Header -->
+        <div class="px-5 pb-4 flex items-center justify-between border-b border-white/5">
+            <div>
+                <h2 class="text-xl font-bold text-white">Keranjang</h2>
+                <p class="text-xs text-gray-400 mt-0.5"><span id="cart-item-count">0</span> item</p>
+            </div>
+            <button onclick="closeCart()" class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        
+        <!-- Cart Items -->
+        <div id="cart-items" class="flex-1 overflow-y-auto px-5 py-4 space-y-3" style="max-height: 40vh;">
+            <!-- Cart items will be populated here -->
+        </div>
+        
+        <!-- Summary & Checkout -->
+        <div class="px-5 pt-4 pb-6 border-t border-white/5 bg-gray-900/50 backdrop-blur">
+            <div class="space-y-2 mb-4">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-400">Subtotal</span>
+                    <span id="modal-subtotal" class="text-white">Rp 0</span>
+                </div>
+                <div class="flex justify-between text-lg font-bold pt-3 border-t border-white/10">
+                    <span class="text-white">Total Bayar</span>
+                    <span id="modal-total" class="text-primary-400">Rp 0</span>
+                </div>
+            </div>
+            
+            <!-- Single Payment Button - Online Only -->
+            <button onclick="payOnline()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-bold text-base flex items-center justify-center space-x-2 shadow-lg shadow-primary-500/30 active:scale-[0.98] transition-transform">
+                <i class="fas fa-credit-card"></i>
+                <span>Bayar Sekarang</span>
+            </button>
+            <p class="text-center text-gray-500 text-xs mt-3">
+                <i class="fas fa-shield-alt mr-1"></i>Pembayaran aman via Payment Gateway
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Options Modal - Improved Design -->
+<div id="options-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-gradient-to-b from-gray-800 to-gray-900 rounded-3xl p-6 w-full max-w-sm animate-scale-up border border-white/5">
+        <div class="text-center mb-5">
+            <div class="w-14 h-14 rounded-2xl bg-primary-500/20 flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-sliders-h text-primary-400 text-xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white" id="modal-item-name">Opsi Pesanan</h3>
+        </div>
+        
+        <div id="spice-options" class="mb-5 hidden">
+            <label class="text-sm text-gray-400 mb-3 block font-medium">
+                <i class="fas fa-pepper-hot text-red-400 mr-2"></i>Tingkat Kepedasan
+            </label>
+            <div class="grid grid-cols-5 gap-1.5">
+                <button onclick="selectSpice('none')" class="spice-btn py-2 rounded-xl bg-white/5 text-gray-400 text-[10px] font-medium border-2 border-transparent transition-all" data-level="none">
+                    Tidak
+                </button>
+                <button onclick="selectSpice('mild')" class="spice-btn py-2 rounded-xl bg-white/5 text-gray-400 text-[10px] font-medium border-2 border-transparent transition-all" data-level="mild">
+                    Sedikit
+                </button>
+                <button onclick="selectSpice('medium')" class="spice-btn py-2 rounded-xl bg-white/5 text-gray-400 text-[10px] font-medium border-2 border-transparent transition-all" data-level="medium">
+                    Sedang
+                </button>
+                <button onclick="selectSpice('hot')" class="spice-btn py-2 rounded-xl bg-white/5 text-gray-400 text-[10px] font-medium border-2 border-transparent transition-all" data-level="hot">
+                    Pedas
+                </button>
+                <button onclick="selectSpice('extra_hot')" class="spice-btn py-2 rounded-xl bg-white/5 text-gray-400 text-[10px] font-medium border-2 border-transparent transition-all" data-level="extra_hot">
+                    Extra
+                </button>
+            </div>
+        </div>
+        
+        <div id="temp-options" class="mb-5 hidden">
+            <label class="text-sm text-gray-400 mb-3 block font-medium">
+                <i class="fas fa-thermometer-half text-blue-400 mr-2"></i>Suhu Minuman
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="selectTemp('hot')" class="temp-btn py-3 rounded-xl bg-white/5 text-gray-400 text-sm font-medium border-2 border-transparent transition-all flex flex-col items-center" data-temp="hot">
+                    <i class="fas fa-mug-hot text-orange-400 text-lg mb-1"></i>
+                    <span class="text-xs">Panas</span>
+                </button>
+                <button onclick="selectTemp('cold')" class="temp-btn py-3 rounded-xl bg-white/5 text-gray-400 text-sm font-medium border-2 border-transparent transition-all flex flex-col items-center" data-temp="cold">
+                    <i class="fas fa-snowflake text-blue-400 text-lg mb-1"></i>
+                    <span class="text-xs">Dingin</span>
+                </button>
+                <button onclick="selectTemp('normal')" class="temp-btn py-3 rounded-xl bg-white/5 text-gray-400 text-sm font-medium border-2 border-transparent transition-all flex flex-col items-center" data-temp="normal">
+                    <i class="fas fa-glass-water text-gray-400 text-lg mb-1"></i>
+                    <span class="text-xs">Normal</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="mb-5">
+            <label class="text-sm text-gray-400 mb-3 block font-medium">
+                <i class="fas fa-pen text-primary-400 mr-2"></i>Catatan (Opsional)
+            </label>
+            <input type="text" id="item-notes" placeholder="Contoh: tanpa sayur, extra sambal..." 
+                   class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all">
+        </div>
+        
+        <div class="flex space-x-3">
+            <button onclick="closeOptionsModal()" class="flex-1 py-3 rounded-xl bg-white/5 text-gray-400 font-semibold hover:bg-white/10 transition-colors">
+                Batal
+            </button>
+            <button onclick="confirmAddToCart()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold shadow-lg shadow-primary-500/30 active:scale-95 transition-transform">
+                <i class="fas fa-plus mr-2"></i>Tambah
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal - Improved Design -->
+<div id="success-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-gradient-to-b from-gray-800 to-gray-900 rounded-3xl p-8 w-full max-w-sm text-center animate-scale-up border border-white/5">
+        <div class="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-green-500/30">
+            <i class="fas fa-check text-white text-4xl"></i>
+        </div>
+        <h3 class="text-2xl font-bold text-white mb-2">Pesanan Berhasil!</h3>
+        <p class="text-gray-400 mb-5 text-sm">Pesanan Anda sedang diproses.<br>Silakan tunggu di meja Anda.</p>
+        <div class="bg-white/5 rounded-2xl p-4 mb-6 border border-white/10">
+            <p class="text-gray-400 text-xs mb-1">Nomor Pesanan</p>
+            <p class="text-2xl font-bold text-primary-400" id="order-number">ORD20240101123456</p>
+        </div>
+        <button onclick="closeSuccessModal()" class="w-full py-4 rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-bold text-base shadow-lg shadow-primary-500/30 active:scale-[0.98] transition-transform">
+            <i class="fas fa-utensils mr-2"></i>Pesan Lagi
+        </button>
+    </div>
+</div>
+
+<!-- Custom Styles -->
+<style>
+    /* Hide scrollbar but allow scroll */
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    /* Safe area for iOS */
+    .safe-area-top {
+        padding-top: env(safe-area-inset-top, 0);
+    }
+    .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    
+    /* Animations */
+    @keyframes slide-up {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    .animate-slide-up {
+        animation: slide-up 0.3s ease-out;
+    }
+    
+    @keyframes scale-up {
+        from {
+            transform: scale(0.9);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    .animate-scale-up {
+        animation: scale-up 0.2s ease-out;
+    }
+    
+    /* Line clamp */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    /* Touch feedback */
+    .active\:scale-95:active {
+        transform: scale(0.95);
+    }
+    .active\:scale-\[0\.98\]:active {
+        transform: scale(0.98);
+    }
+</style>
+
+<script>
+const tableId = {{ table.id }};
+let cart = [];
+let currentItem = null;
+let selectedSpice = 'none';
+let selectedTemp = 'normal';
+
+function formatCurrency(num) {
+    return 'Rp ' + new Intl.NumberFormat('id-ID').format(num);
+}
+
+// Search functionality
+function searchMenu(query) {
+    const searchQuery = query.toLowerCase().trim();
+    const menuItems = document.querySelectorAll('.menu-item');
+    const noResults = document.getElementById('no-results');
+    const clearBtn = document.getElementById('clear-search');
+    let visibleCount = 0;
+    
+    clearBtn.classList.toggle('hidden', !searchQuery);
+    
+    menuItems.forEach(item => {
+        const name = item.dataset.name || '';
+        const desc = item.dataset.description || '';
+        const matches = name.includes(searchQuery) || desc.includes(searchQuery);
+        
+        if (searchQuery === '' || matches) {
+            item.style.display = '';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    noResults.classList.toggle('hidden', visibleCount > 0 || searchQuery === '');
+    
+    // Reset category selection when searching
+    if (searchQuery) {
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.classList.remove('bg-primary-500', 'text-white');
+            btn.classList.add('bg-white/5', 'text-gray-400');
+        });
+    }
+}
+
+function clearSearch() {
+    document.getElementById('search-input').value = '';
+    searchMenu('');
+    filterCategory('all');
+}
+
+function filterCategory(categoryId) {
+    // Clear search when filtering by category
+    document.getElementById('search-input').value = '';
+    document.getElementById('clear-search').classList.add('hidden');
+    document.getElementById('no-results').classList.add('hidden');
+    
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('bg-primary-500', 'text-white');
+        btn.classList.add('bg-white/5', 'text-gray-400');
+    });
+    const activeBtn = document.querySelector(`.category-btn[data-category="${categoryId}"]`);
+    if (activeBtn) {
+        activeBtn.classList.add('bg-primary-500', 'text-white');
+        activeBtn.classList.remove('bg-white/5', 'text-gray-400');
+    }
+    
+    document.querySelectorAll('.menu-item').forEach(item => {
+        if (categoryId === 'all' || item.dataset.category == categoryId) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function addToCart(id, name, price, hasSpicy, hasTemp) {
+    currentItem = { id, name, price, hasSpicy, hasTemp };
+    
+    if (hasSpicy || hasTemp) {
+        document.getElementById('modal-item-name').textContent = name;
+        document.getElementById('spice-options').classList.toggle('hidden', !hasSpicy);
+        document.getElementById('temp-options').classList.toggle('hidden', !hasTemp);
+        document.getElementById('options-modal').classList.remove('hidden');
+        document.getElementById('options-modal').classList.add('flex');
+        selectedSpice = 'none';
+        selectedTemp = 'normal';
+        // Reset selections visually
+        document.querySelectorAll('.spice-btn, .temp-btn').forEach(btn => {
+            btn.classList.remove('border-primary-500', 'bg-primary-500/20', 'text-white');
+        });
+    } else {
+        addItemToCart(id, name, price, null, null, '');
+        showAddedToast(name);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showAddedToast(name) {
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg animate-fade-in';
+    const icon = document.createElement('i');
+    icon.className = 'fas fa-check mr-2';
+    toast.appendChild(icon);
+    toast.appendChild(document.createTextNode(name + ' ditambahkan'));
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+
+function selectSpice(level) {
+    selectedSpice = level;
+    document.querySelectorAll('.spice-btn').forEach(btn => {
+        btn.classList.remove('border-primary-500', 'bg-primary-500/20', 'text-white');
+    });
+    const selected = document.querySelector(`.spice-btn[data-level="${level}"]`);
+    selected.classList.add('border-primary-500', 'bg-primary-500/20', 'text-white');
+}
+
+function selectTemp(temp) {
+    selectedTemp = temp;
+    document.querySelectorAll('.temp-btn').forEach(btn => {
+        btn.classList.remove('border-primary-500', 'bg-primary-500/20', 'text-white');
+    });
+    const selected = document.querySelector(`.temp-btn[data-temp="${temp}"]`);
+    selected.classList.add('border-primary-500', 'bg-primary-500/20', 'text-white');
+}
+
+function closeOptionsModal() {
+    document.getElementById('options-modal').classList.add('hidden');
+    document.getElementById('options-modal').classList.remove('flex');
+    document.getElementById('item-notes').value = '';
+}
+
+function confirmAddToCart() {
+    const notes = document.getElementById('item-notes').value;
+    addItemToCart(currentItem.id, currentItem.name, currentItem.price, 
+                  currentItem.hasSpicy ? selectedSpice : null, 
+                  currentItem.hasTemp ? selectedTemp : null, notes);
+    closeOptionsModal();
+    showAddedToast(currentItem.name);
+}
+
+function addItemToCart(id, name, price, spiceLevel, temperature, notes) {
+    const existingIndex = cart.findIndex(item => 
+        item.id === id && item.spice_level === spiceLevel && item.temperature === temperature
+    );
+    
+    if (existingIndex > -1) {
+        cart[existingIndex].quantity++;
+    } else {
+        cart.push({ id, menu_item_id: id, name, price, quantity: 1, spice_level: spiceLevel, temperature, notes });
+    }
+    
+    updateCartUI();
+}
+
+function updateCartUI() {
+    const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const total = subtotal;
+    
+    document.getElementById('cart-count').textContent = count;
+    document.getElementById('cart-item-count').textContent = count;
+    document.getElementById('cart-total').textContent = formatCurrency(total);
+    document.getElementById('cart-button').classList.toggle('hidden', cart.length === 0);
+    
+    document.getElementById('modal-subtotal').textContent = formatCurrency(subtotal);
+    document.getElementById('modal-total').textContent = formatCurrency(total);
+    
+    const cartItemsEl = document.getElementById('cart-items');
+    if (cart.length === 0) {
+        cartItemsEl.innerHTML = `
+            <div class="text-center py-12">
+                <div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-shopping-bag text-2xl text-gray-500"></i>
+                </div>
+                <p class="text-gray-500">Keranjang masih kosong</p>
+                <p class="text-gray-600 text-sm mt-1">Yuk pilih menu favorit kamu!</p>
+            </div>
+        `;
+    } else {
+        cartItemsEl.innerHTML = cart.map((item, index) => `
+            <div class="bg-white/5 rounded-2xl p-3 flex items-center space-x-3 border border-white/5">
+                <div class="flex-1 min-w-0">
+                    <h4 class="font-semibold text-white text-sm truncate">${escapeHtml(item.name)}</h4>
+                    <p class="text-primary-400 font-bold text-sm">${formatCurrency(item.price * item.quantity)}</p>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                        ${item.spice_level && item.spice_level !== 'none' ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">${escapeHtml(item.spice_level)}</span>` : ''}
+                        ${item.temperature && item.temperature !== 'normal' ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">${escapeHtml(item.temperature)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 shrink-0">
+                    <button onclick="updateQty(${index}, -1)" class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white active:scale-90 transition-transform">
+                        <i class="fas fa-minus text-xs"></i>
+                    </button>
+                    <span class="w-6 text-center text-white font-semibold">${item.quantity}</span>
+                    <button onclick="updateQty(${index}, 1)" class="w-8 h-8 rounded-xl bg-primary-500 flex items-center justify-center text-white active:scale-90 transition-transform">
+                        <i class="fas fa-plus text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+function updateQty(index, delta) {
+    cart[index].quantity += delta;
+    if (cart[index].quantity <= 0) cart.splice(index, 1);
+    updateCartUI();
+}
+
+function openCart() {
+    document.getElementById('cart-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeCart() {
+    document.getElementById('cart-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+// Removed payWithCash - only online payment available for QR code orders
+
+async function payOnline() {
+    await submitOrder('online');
+}
+
+async function submitOrder(paymentMethod) {
+    if (cart.length === 0) return;
+    
+    const orderData = {
+        items: cart,
+        table_id: tableId,
+        order_type: 'online',
+        payment_method: paymentMethod,
+        paid_amount: 0
+    };
+    
+    try {
+        const response = await fetch('/api/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Handle online payment with Midtrans Snap
+            if (result.payment_method === 'online' && result.snap_token) {
+                closeCart();
+                openMidtransPayment(result.snap_token, result.order);
+            } else if (result.payment_method === 'online' && !result.snap_token) {
+                // Payment gateway error
+                alert(result.error_payment || 'Gagal terhubung ke payment gateway. Silakan coba lagi.');
+            } else {
+                // Fallback success
+                closeCart();
+                document.getElementById('order-number').textContent = result.order.order_number;
+                document.getElementById('success-modal').classList.remove('hidden');
+                document.getElementById('success-modal').classList.add('flex');
+                cart = [];
+                updateCartUI();
+            }
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+// Open Midtrans Snap popup for online payment
+function openMidtransPayment(snapToken, order) {
+    if (typeof window.snap !== 'undefined') {
+        window.snap.pay(snapToken, {
+            onSuccess: function(result) {
+                console.log('Payment success:', result);
+                updatePaymentStatus(order.id, 'paid', result);
+                showSuccessModal(order.order_number);
+                cart = [];
+                updateCartUI();
+            },
+            onPending: function(result) {
+                console.log('Payment pending:', result);
+                alert('Pembayaran pending. Silakan selesaikan pembayaran Anda.');
+            },
+            onError: function(result) {
+                console.log('Payment error:', result);
+                alert('Pembayaran gagal. Silakan coba lagi.');
+            },
+            onClose: function() {
+                console.log('Snap popup closed');
+                alert('Pembayaran dibatalkan.');
+            }
+        });
+    } else {
+        alert('Payment gateway tidak tersedia. Silakan coba lagi nanti.');
+    }
+}
+
+async function updatePaymentStatus(orderId, status, midtransResult) {
+    try {
+        await fetch('/api/payment/midtrans/callback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                order_id: midtransResult.order_id,
+                transaction_status: status === 'paid' ? 'settlement' : 'pending'
+            })
+        });
+    } catch (error) {
+        console.error('Error updating payment:', error);
+    }
+}
+
+function showSuccessModal(orderNumber) {
+    document.getElementById('order-number').textContent = orderNumber;
+    document.getElementById('success-modal').classList.remove('hidden');
+    document.getElementById('success-modal').classList.add('flex');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSuccessModal() {
+    document.getElementById('success-modal').classList.add('hidden');
+    document.getElementById('success-modal').classList.remove('flex');
+    document.body.style.overflow = '';
+    // Reset modal text
+    document.getElementById('success-modal').querySelector('h3').textContent = 'Pesanan Berhasil!';
+    const pElement = document.getElementById('success-modal').querySelector('p');
+    pElement.innerHTML = 'Pesanan Anda sedang diproses.<br>Silakan tunggu di meja Anda.';
+}
+
+// Initialize cart UI
+updateCartUI();
+</script>
+{% endblock %}

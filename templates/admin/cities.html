@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Kelola Kota - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    {% set active_page = 'admin_cities' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Kelola Kota</h1>
+                <p class="text-gray-400">Atur kota untuk hierarki multi-outlet</p>
+            </div>
+            <button onclick="document.getElementById('add-city-modal').classList.remove('hidden'); document.getElementById('add-city-modal').classList.add('flex')" 
+                    class="btn-primary px-4 py-2 rounded-xl text-white font-medium flex items-center space-x-2">
+                <i class="fas fa-plus"></i>
+                <span>Tambah Kota</span>
+            </button>
+        </header>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for city in cities %}
+            <div class="glass-card rounded-2xl p-6 animate-fade-in">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                            <i class="fas fa-city text-blue-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg">{{ city.name }}</h3>
+                            <span class="text-xs text-gray-400 bg-white/5 px-2 py-0.5 rounded">{{ city.code }}</span>
+                        </div>
+                    </div>
+                    <span class="px-2 py-1 rounded-full text-xs font-medium {% if city.is_active %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+                        {{ 'Aktif' if city.is_active else 'Nonaktif' }}
+                    </span>
+                </div>
+                
+                <div class="flex items-center space-x-2 mb-4 text-sm text-gray-400">
+                    <i class="fas fa-store w-4"></i>
+                    <span>{{ city.branches.count() }} cabang</span>
+                </div>
+                
+                <div class="flex items-center space-x-2 pt-4 border-t border-white/10">
+                    <button onclick="editCity(this)" 
+                            data-id="{{ city.id }}"
+                            data-name="{{ city.name|e }}"
+                            data-code="{{ city.code|e }}"
+                            class="flex-1 py-2 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white text-sm">
+                        <i class="fas fa-edit mr-1"></i>Edit
+                    </button>
+                    {% if is_owner %}
+                    <button onclick="toggleCity({{ city.id }})" 
+                            class="py-2 px-3 rounded-lg {% if city.is_active %}bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20{% else %}bg-green-500/10 text-green-400 hover:bg-green-500/20{% endif %} text-sm">
+                        <i class="fas {% if city.is_active %}fa-pause{% else %}fa-play{% endif %}"></i>
+                    </button>
+                    <form action="{{ url_for('admin_city_delete', city_id=city.id) }}" method="POST" 
+                          onsubmit="return confirm('Hapus kota {{ city.name }}?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="py-2 px-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="col-span-full glass-card rounded-2xl p-12 text-center">
+                <i class="fas fa-city text-4xl text-gray-600 mb-4"></i>
+                <h3 class="text-lg font-semibold text-gray-400 mb-2">Belum ada kota</h3>
+                <p class="text-gray-500 text-sm">Tambahkan kota pertama untuk memulai hierarki</p>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+</div>
+
+<!-- Add City Modal -->
+<div id="add-city-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
+        <h3 class="text-lg font-semibold mb-4">Tambah Kota Baru</h3>
+        <form action="{{ url_for('admin_city_create') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Nama Kota *</label>
+                    <input type="text" name="name" required placeholder="Jakarta"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Kode Kota *</label>
+                    <input type="text" name="code" required placeholder="JKT" maxlength="20"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 uppercase"
+                           oninput="this.value = this.value.toUpperCase()">
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button type="button" onclick="document.getElementById('add-city-modal').classList.add('hidden'); document.getElementById('add-city-modal').classList.remove('flex')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 font-medium hover:bg-white/20">
+                    Batal
+                </button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl btn-primary text-white font-medium">
+                    Tambah Kota
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit City Modal -->
+<div id="edit-city-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
+        <h3 class="text-lg font-semibold mb-4">Edit Kota</h3>
+        <form id="edit-city-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Nama Kota *</label>
+                    <input type="text" name="name" id="edit-city-name" required
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Kode Kota *</label>
+                    <input type="text" name="code" id="edit-city-code" required maxlength="20"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 uppercase"
+                           oninput="this.value = this.value.toUpperCase()">
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button type="button" onclick="document.getElementById('edit-city-modal').classList.add('hidden'); document.getElementById('edit-city-modal').classList.remove('flex')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 font-medium hover:bg-white/20">
+                    Batal
+                </button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl btn-primary text-white font-medium">
+                    Simpan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editCity(el) {
+    const id = el.dataset.id;
+    document.getElementById('edit-city-form').action = `/admin/cities/${id}/edit`;
+    document.getElementById('edit-city-name').value = el.dataset.name;
+    document.getElementById('edit-city-code').value = el.dataset.code;
+    document.getElementById('edit-city-modal').classList.remove('hidden');
+    document.getElementById('edit-city-modal').classList.add('flex');
+}
+
+async function toggleCity(id) {
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const response = await fetch(`/admin/cities/${id}/toggle`, { 
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Gagal mengubah status kota');
+        }
+    } catch (error) {
+        alert('Terjadi kesalahan');
+    }
+}
+</script>
+{% endblock %}

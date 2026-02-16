@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+{% set active_page = 'admin_integrations' %}
+
+{% block title %}Integrasi Platform - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<main class="p-4 md:p-8 md:ml-64 min-h-screen">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-display font-bold gradient-text">Integrasi Platform</h1>
+                <p class="text-gray-400 mt-1">Hubungkan GrabFood, GoFood, dan ShopeeFood ke sistem kasir</p>
+            </div>
+            {% if sig_failures > 0 %}
+            <div class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2 flex items-center space-x-2">
+                <i class="fas fa-shield-alt text-red-400"></i>
+                <span class="text-red-400 text-sm font-medium">{{ sig_failures }} signature failure(s) dalam 24 jam terakhir</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Platform Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {% for key, platform in platforms.items() %}
+            <div class="glass rounded-2xl p-6 border border-white/10">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-xl bg-{{ platform.color }}-500/20 flex items-center justify-center">
+                            <i class="fas {{ platform.icon }} text-{{ platform.color }}-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg">{{ platform.name }}</h3>
+                            <span class="text-xs px-2 py-0.5 rounded-full {% if platform.enabled %}bg-green-500/20 text-green-400{% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                                {% if platform.enabled %}Aktif{% else %}Belum Aktif{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <span class="text-2xl font-bold text-{{ platform.color }}-400">{{ stats.get(key, 0) }}</span>
+                </div>
+                
+                <div class="space-y-3 text-sm">
+                    <div>
+                        <label class="text-gray-400 text-xs">Webhook URL</label>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <code class="flex-1 bg-white/5 px-3 py-2 rounded-lg text-xs text-gray-300 truncate" id="webhook-{{ key }}">{{ platform.webhook_url }}</code>
+                            <button onclick="copyWebhookUrl('{{ key }}', event)" class="px-3 py-2 rounded-lg bg-white/5 text-gray-400 hover:text-white hover:bg-white/10" title="Salin URL">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-gray-400 text-xs">Signature Header / Algorithm</label>
+                        <div class="bg-white/5 px-3 py-2 rounded-lg text-xs text-gray-300">
+                            <code>{{ platform.sig_header }}</code> &middot; <span class="text-primary-400">{{ platform.sig_algo }}</span>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-gray-400 text-xs">Webhook Secret</label>
+                        <div class="bg-white/5 px-3 py-2 rounded-lg text-xs text-gray-300">
+                            {% if platform.secret %}
+                            {{ platform.secret[:8] }}****{{ platform.secret[-4:] if platform.secret|length > 12 else '****' }}
+                            {% else %}
+                            <span class="text-gray-500">Belum dikonfigurasi</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if platform.store_branch_map %}
+                    <div>
+                        <label class="text-gray-400 text-xs">Store→Branch Mapping</label>
+                        <div class="bg-white/5 px-3 py-2 rounded-lg text-xs text-gray-300">{{ platform.store_branch_map }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Test Webhook Button -->
+                <button onclick="testWebhook('{{ key }}')" class="mt-4 w-full py-2.5 rounded-xl bg-{{ platform.color }}-500/10 text-{{ platform.color }}-400 hover:bg-{{ platform.color }}-500/20 font-medium text-sm transition-all">
+                    <i class="fas fa-vial mr-2"></i>Test Webhook
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Setup Guide -->
+        <div class="glass rounded-2xl p-6 mb-8 border border-white/10">
+            <h2 class="text-xl font-bold mb-4">
+                <i class="fas fa-book text-primary-400 mr-2"></i>Panduan Integrasi
+            </h2>
+            
+            <div class="space-y-6">
+                <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                    <p class="text-blue-400 font-medium mb-2"><i class="fas fa-info-circle mr-2"></i>Penting!</p>
+                    <p class="text-gray-300 text-sm">
+                        GrabFood, GoFood, dan ShopeeFood menggunakan sistem <strong>Merchant Integration</strong> yang memerlukan 
+                        pendaftaran sebagai mitra resmi. Setelah terdaftar, Anda akan mendapatkan akses untuk mengkonfigurasi webhook 
+                        yang akan mengirim pesanan otomatis ke sistem kasir ini.
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- GrabFood -->
+                    <div class="bg-white/5 rounded-xl p-4">
+                        <h3 class="font-bold text-green-400 mb-3"><i class="fas fa-motorcycle mr-2"></i>GrabFood</h3>
+                        <ol class="space-y-2 text-sm text-gray-300">
+                            <li>1. Daftar sebagai merchant di <strong>GrabMerchant Portal</strong></li>
+                            <li>2. Akses menu <strong>Developer Settings</strong></li>
+                            <li>3. Masukkan <strong>Webhook URL</strong> di atas ke kolom Order Notification URL</li>
+                            <li>4. Salin <strong>Webhook Secret</strong> dari portal</li>
+                            <li>5. Signature dikirim via header <code class="text-xs bg-white/5 px-1 rounded">X-Grab-Signature</code> (HMAC-SHA256)</li>
+                            <li>6. Set environment variable:<br>
+                                <code class="text-xs bg-white/5 px-2 py-1 rounded mt-1 inline-block">GRABFOOD_WEBHOOK_SECRET=secret_anda</code>
+                            </li>
+                        </ol>
+                    </div>
+                    
+                    <!-- GoFood -->
+                    <div class="bg-white/5 rounded-xl p-4">
+                        <h3 class="font-bold text-red-400 mb-3"><i class="fas fa-utensils mr-2"></i>GoFood</h3>
+                        <ol class="space-y-2 text-sm text-gray-300">
+                            <li>1. Daftar sebagai mitra di <strong>GoBiz Dashboard</strong></li>
+                            <li>2. Akses <strong>API Integration</strong> settings</li>
+                            <li>3. Masukkan <strong>Webhook URL</strong> di atas ke kolom notification URL</li>
+                            <li>4. Salin <strong>API Secret</strong> dari dashboard</li>
+                            <li>5. Token verifikasi dikirim via header <code class="text-xs bg-white/5 px-1 rounded">X-Callback-Token</code> (Token Comparison)</li>
+                            <li>6. Set environment variable:<br>
+                                <code class="text-xs bg-white/5 px-2 py-1 rounded mt-1 inline-block">GOFOOD_WEBHOOK_SECRET=secret_anda</code>
+                            </li>
+                        </ol>
+                    </div>
+                    
+                    <!-- ShopeeFood -->
+                    <div class="bg-white/5 rounded-xl p-4">
+                        <h3 class="font-bold text-orange-400 mb-3"><i class="fas fa-shopping-bag mr-2"></i>ShopeeFood</h3>
+                        <ol class="space-y-2 text-sm text-gray-300">
+                            <li>1. Daftar sebagai merchant di <strong>Shopee Partner Portal</strong></li>
+                            <li>2. Akses <strong>Webhook Configuration</strong></li>
+                            <li>3. Masukkan <strong>Webhook URL</strong> di atas ke kolom Order Webhook</li>
+                            <li>4. Salin <strong>Webhook Secret</strong> dari portal</li>
+                            <li>5. Signature dikirim via header <code class="text-xs bg-white/5 px-1 rounded">X-Shopee-Hmac-SHA256</code> (HMAC-SHA256)</li>
+                            <li>6. Set environment variable:<br>
+                                <code class="text-xs bg-white/5 px-2 py-1 rounded mt-1 inline-block">SHOPEEFOOD_WEBHOOK_SECRET=secret_anda</code>
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="bg-white/5 rounded-xl p-4">
+                    <h3 class="font-bold text-gray-200 mb-2"><i class="fas fa-cog mr-2"></i>Environment Variables</h3>
+                    <p class="text-gray-400 text-sm mb-3">Tambahkan variable berikut di file <code>.env</code> atau environment server Anda:</p>
+                    <pre class="bg-black/30 rounded-lg p-4 text-sm text-gray-300 overflow-x-auto">
+# GrabFood Integration (HMAC-SHA256 via X-Grab-Signature)
+GRABFOOD_WEBHOOK_SECRET=your_grabfood_secret_here
+GRABFOOD_STORE_ID=your_store_id
+GRABFOOD_STORE_BRANCH_MAP=store123:PUSAT,store456:CBG-S
+
+# GoFood Integration (Token Comparison via X-Callback-Token)
+GOFOOD_WEBHOOK_SECRET=your_gofood_secret_here
+GOFOOD_STORE_ID=your_store_id
+GOFOOD_STORE_BRANCH_MAP=outlet789:PUSAT
+
+# ShopeeFood Integration (HMAC-SHA256 via X-Shopee-Hmac-SHA256)
+SHOPEEFOOD_WEBHOOK_SECRET=your_shopeefood_secret_here
+SHOPEEFOOD_STORE_ID=your_store_id
+SHOPEEFOOD_STORE_BRANCH_MAP=shop111:PUSAT</pre>
+                </div>
+
+                <div class="bg-white/5 rounded-xl p-4">
+                    <h3 class="font-bold text-gray-200 mb-2"><i class="fas fa-print mr-2"></i>Deferred Printing</h3>
+                    <p class="text-gray-400 text-sm">
+                        Pesanan dari webhook <strong>tidak langsung dicetak</strong> saat diterima. Pesanan masuk ke antrian print 
+                        (<code>PendingPrint</code>) dan akan diambil oleh <strong>Printer Station</strong> secara periodik.
+                        Ini mencegah timeout dan duplikasi cetak jika platform melakukan retry.
+                    </p>
+                    <p class="text-gray-400 text-sm mt-2">
+                        <strong>Status alur:</strong> 
+                        <span class="text-yellow-400">Received</span> → 
+                        <span class="text-blue-400">Accepted</span> → 
+                        <span class="text-green-400">Printed</span>
+                    </p>
+                </div>
+
+                <div class="bg-white/5 rounded-xl p-4">
+                    <h3 class="font-bold text-gray-200 mb-2"><i class="fas fa-code-branch mr-2"></i>Multi-Cabang (Store ID Mapping)</h3>
+                    <p class="text-gray-400 text-sm">
+                        Untuk multi-cabang, konfigurasi <code>*_STORE_BRANCH_MAP</code> environment variable dengan format <code>store_id:BRANCH_CODE</code>.
+                        Platform mengirim store/outlet ID dalam payload, dan sistem akan otomatis merutekan ke cabang yang benar.
+                        Jika tidak ada mapping yang cocok, pesanan masuk ke cabang Pusat.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent External Orders -->
+        <div class="glass rounded-2xl p-6 mb-8 border border-white/10">
+            <h2 class="text-xl font-bold mb-4">
+                <i class="fas fa-history text-primary-400 mr-2"></i>Pesanan Terbaru dari Platform
+            </h2>
+            
+            {% if recent_orders %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-gray-400 border-b border-white/10">
+                            <th class="text-left py-3 px-4">Platform</th>
+                            <th class="text-left py-3 px-4">External ID</th>
+                            <th class="text-left py-3 px-4">Order #</th>
+                            <th class="text-left py-3 px-4">Status</th>
+                            <th class="text-left py-3 px-4">Signature</th>
+                            <th class="text-left py-3 px-4">Waktu</th>
+                            <th class="text-left py-3 px-4">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ext in recent_orders %}
+                        <tr class="border-b border-white/5 hover:bg-white/5">
+                            <td class="py-3 px-4">
+                                {% if ext.platform == 'grabfood' %}
+                                <span class="text-green-400"><i class="fas fa-motorcycle mr-1"></i>GrabFood</span>
+                                {% elif ext.platform == 'gofood' %}
+                                <span class="text-red-400"><i class="fas fa-utensils mr-1"></i>GoFood</span>
+                                {% elif ext.platform == 'shopeefood' %}
+                                <span class="text-orange-400"><i class="fas fa-shopping-bag mr-1"></i>ShopeeFood</span>
+                                {% else %}
+                                <span class="text-gray-400">{{ ext.platform }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-gray-300 font-mono text-xs">{{ ext.external_order_id }}</td>
+                            <td class="py-3 px-4">
+                                {% if ext.order %}
+                                <a href="{{ url_for('orders') }}" class="text-primary-400 hover:underline">{{ ext.order.order_number }}</a>
+                                {% else %}
+                                <span class="text-gray-500">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4">
+                                {% if ext.status == 'printed' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400"><i class="fas fa-print mr-1"></i>Dicetak</span>
+                                {% elif ext.status == 'accepted' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-400"><i class="fas fa-check mr-1"></i>Diterima</span>
+                                {% elif ext.status == 'received' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-400"><i class="fas fa-clock mr-1"></i>Diterima</span>
+                                {% elif ext.status == 'failed' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-400" title="{{ ext.error_message }}"><i class="fas fa-times mr-1"></i>Gagal</span>
+                                {% else %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-gray-500/20 text-gray-400">{{ ext.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4">
+                                {% if ext.signature_status == 'valid' %}
+                                <span class="text-green-400 text-xs"><i class="fas fa-shield-alt mr-1"></i>Valid</span>
+                                {% elif ext.signature_status == 'skipped' %}
+                                <span class="text-yellow-400 text-xs"><i class="fas fa-forward mr-1"></i>Dilewati</span>
+                                {% elif ext.signature_status == 'invalid' %}
+                                <span class="text-red-400 text-xs"><i class="fas fa-exclamation-triangle mr-1"></i>Invalid</span>
+                                {% else %}
+                                <span class="text-gray-500 text-xs">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-gray-400 text-xs">{{ ext.created_at.strftime('%d/%m/%Y %H:%M') if ext.created_at else '-' }}</td>
+                            <td class="py-3 px-4">
+                                {% if ext.status in ('failed', 'received') %}
+                                <button onclick="replayWebhook({{ ext.id }})" class="px-3 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 text-xs font-medium transition-all" title="Replay order">
+                                    <i class="fas fa-redo mr-1"></i>Replay
+                                </button>
+                                {% elif ext.retry_count and ext.retry_count > 0 %}
+                                <span class="text-xs text-gray-500">Retry: {{ ext.retry_count }}x</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-gray-400">
+                <i class="fas fa-inbox text-4xl mb-3"></i>
+                <p>Belum ada pesanan dari platform food delivery</p>
+                <p class="text-sm mt-1">Pesanan akan muncul di sini setelah integrasi dikonfigurasi</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Webhook Logs (Signature Failures) -->
+        <div class="glass rounded-2xl p-6 border border-white/10">
+            <h2 class="text-xl font-bold mb-4">
+                <i class="fas fa-shield-alt text-primary-400 mr-2"></i>Log Webhook (Terakhir 20)
+            </h2>
+            
+            {% if recent_logs %}
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-gray-400 border-b border-white/10">
+                            <th class="text-left py-3 px-4">Platform</th>
+                            <th class="text-left py-3 px-4">IP</th>
+                            <th class="text-left py-3 px-4">Hasil</th>
+                            <th class="text-left py-3 px-4">Detail</th>
+                            <th class="text-left py-3 px-4">Waktu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_logs %}
+                        <tr class="border-b border-white/5 hover:bg-white/5">
+                            <td class="py-3 px-4">
+                                {% if log.platform == 'grabfood' %}
+                                <span class="text-green-400 text-xs">GrabFood</span>
+                                {% elif log.platform == 'gofood' %}
+                                <span class="text-red-400 text-xs">GoFood</span>
+                                {% elif log.platform == 'shopeefood' %}
+                                <span class="text-orange-400 text-xs">ShopeeFood</span>
+                                {% else %}
+                                <span class="text-gray-400 text-xs">{{ log.platform }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-gray-300 font-mono text-xs">{{ log.request_ip or '-' }}</td>
+                            <td class="py-3 px-4">
+                                {% if log.result == 'success' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400">OK</span>
+                                {% elif log.result == 'sig_invalid' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-400">Signature Invalid</span>
+                                {% elif log.result == 'sig_missing' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-400">Sig Missing</span>
+                                {% elif log.result == 'error' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-400">Error</span>
+                                {% elif log.result == 'rate_limited' %}
+                                <span class="px-2 py-1 rounded-full text-xs bg-orange-500/20 text-orange-400">Rate Limited</span>
+                                {% else %}
+                                <span class="text-gray-400 text-xs">{{ log.result }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-gray-400 text-xs max-w-xs truncate" title="{{ log.error_detail or '' }}">{{ log.error_detail or '-' }}</td>
+                            <td class="py-3 px-4 text-gray-400 text-xs">{{ log.created_at.strftime('%d/%m/%Y %H:%M:%S') if log.created_at else '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-8 text-gray-400">
+                <i class="fas fa-clipboard-check text-3xl mb-3"></i>
+                <p class="text-sm">Belum ada log webhook</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</main>
+
+<script>
+function copyWebhookUrl(platform, event) {
+    const url = document.getElementById('webhook-' + platform).textContent.trim();
+    navigator.clipboard.writeText(url).then(() => {
+        const btn = event.target.closest('button');
+        const icon = btn.querySelector('i');
+        icon.className = 'fas fa-check text-green-400';
+        setTimeout(() => { icon.className = 'fas fa-copy'; }, 2000);
+    }).catch(() => {
+        const input = document.createElement('input');
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+    });
+}
+
+function testWebhook(platform) {
+    const testData = {
+        order_id: 'TEST-' + Date.now(),
+        customer_name: 'Test Customer',
+        items: [
+            { name: 'Nasi Goreng Special', quantity: 1, price: 35000 },
+            { name: 'Es Teh Manis', quantity: 2, price: 8000 }
+        ],
+        notes: 'Test order dari panel admin'
+    };
+    
+    if (platform === 'grabfood') {
+        testData.orderID = testData.order_id;
+        testData.eater = { name: testData.customer_name };
+        testData.specialInstructions = testData.notes;
+    } else if (platform === 'gofood') {
+        testData.id = testData.order_id;
+        testData.customer = { name: testData.customer_name };
+        testData.customer_note = testData.notes;
+    } else if (platform === 'shopeefood') {
+        testData.order_code = testData.order_id;
+        testData.buyer = { name: testData.customer_name };
+        testData.message_to_seller = testData.notes;
+    }
+    
+    fetch('/api/webhook/' + platform, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testData)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Test berhasil! Pesanan telah masuk ke antrian print.', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('Test gagal: ' + (data.error || data.message || 'Unknown error'), 'error');
+        }
+    })
+    .catch(err => {
+        showToast('Error: ' + err.message, 'error');
+    });
+}
+
+function replayWebhook(extId) {
+    if (!confirm('Replay order ini? Pesanan akan diproses ulang.')) return;
+    
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    fetch('/admin/webhook/' + extId + '/replay', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken || ''
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Order berhasil di-replay!', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('Replay gagal: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(err => {
+        showToast('Error: ' + err.message, 'error');
+    });
+}
+
+function showToast(msg, type) {
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-6 right-6 z-50 px-6 py-3 rounded-xl shadow-2xl text-sm font-medium transition-all ' +
+        (type === 'success' ? 'bg-green-500/90 text-white' : 'bg-red-500/90 text-white');
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
+</script>
+{% endblock %}

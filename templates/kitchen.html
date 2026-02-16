@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Dapur - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="min-h-screen p-4 md:p-8">
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6">
+        <div class="flex items-center space-x-4">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="w-12 h-12 rounded-xl object-contain">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-display font-bold">Kitchen Display</h1>
+                <p class="text-gray-400">Dapoer Teras Obor - Pesanan Aktif</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="text-right">
+                <div class="text-2xl font-bold" id="current-time">--:--</div>
+                <div class="text-sm text-gray-400" id="current-date">-- -- ----</div>
+            </div>
+            <a href="{{ url_for('dashboard') }}" class="px-4 py-2 rounded-xl bg-white/10 text-gray-300 hover:bg-white/20">
+                <i class="fas fa-arrow-left mr-2"></i>Kembali
+            </a>
+        </div>
+    </header>
+
+    <!-- Status Legend -->
+    <div class="glass-card rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-4 md:gap-6">
+        <span class="flex items-center"><span class="w-4 h-4 rounded bg-yellow-500 mr-2"></span>Menunggu</span>
+        <span class="flex items-center"><span class="w-4 h-4 rounded bg-blue-500 mr-2"></span>Dimasak</span>
+        <span class="flex items-center"><span class="w-4 h-4 rounded bg-green-500 mr-2"></span>Siap Saji</span>
+        <span class="flex items-center"><span class="w-4 h-4 rounded bg-gray-500 mr-2"></span>Disajikan</span>
+        <div class="ml-auto text-sm text-gray-400">
+            Auto-refresh: <span class="text-green-400" id="refresh-countdown">5</span>s
+        </div>
+    </div>
+
+    <!-- Orders Grid -->
+    <div id="orders-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <!-- Orders will be loaded here -->
+        <div class="col-span-full text-center py-12">
+            <i class="fas fa-spinner fa-spin text-4xl text-gray-500 mb-4"></i>
+            <p class="text-gray-400">Memuat pesanan...</p>
+        </div>
+    </div>
+
+    <!-- No Orders Message -->
+    <div id="no-orders" class="hidden text-center py-20">
+        <div class="w-24 h-24 mx-auto rounded-full bg-green-500/20 flex items-center justify-center mb-6">
+            <i class="fas fa-check text-4xl text-green-400"></i>
+        </div>
+        <h2 class="text-2xl font-bold mb-2">Tidak Ada Pesanan</h2>
+        <p class="text-gray-400">Semua pesanan sudah selesai dimasak</p>
+    </div>
+</div>
+
+<script>
+let refreshInterval;
+let countdownInterval;
+let countdown = 5;
+
+// XSS Protection - escape HTML entities
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
+function updateClock() {
+    const now = new Date();
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'});
+    document.getElementById('current-date').textContent = now.toLocaleDateString('id-ID', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+}
+
+function getStatusColor(status) {
+    switch(status) {
+        case 'pending': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
+        case 'cooking': return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
+        case 'ready': return 'bg-green-500/20 text-green-400 border-green-500/50';
+        case 'served': return 'bg-gray-500/20 text-gray-400 border-gray-500/50';
+        default: return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
+    }
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'pending': return 'Menunggu';
+        case 'cooking': return 'Dimasak';
+        case 'ready': return 'Siap Saji';
+        case 'served': return 'Disajikan';
+        default: return 'Menunggu';
+    }
+}
+
+function getNextStatus(status) {
+    switch(status) {
+        case 'pending': return 'cooking';
+        case 'cooking': return 'ready';
+        case 'ready': return 'served';
+        default: return status;
+    }
+}
+
+function getButtonText(status) {
+    switch(status) {
+        case 'pending': return '<i class="fas fa-fire mr-1"></i>Mulai Masak';
+        case 'cooking': return '<i class="fas fa-check mr-1"></i>Siap Saji';
+        case 'ready': return '<i class="fas fa-hand-holding mr-1"></i>Disajikan';
+        default: return '<i class="fas fa-check mr-1"></i>Selesai';
+    }
+}
+
+async function updateItemStatus(itemId, newStatus) {
+    try {
+        const response = await fetch(`/api/kitchen/item/${encodeURIComponent(itemId)}/status`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: newStatus})
+        });
+        
+        if (response.ok) {
+            loadOrders();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            alert('Gagal update status: ' + (data.error || `HTTP ${response.status}`));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error koneksi: ' + error.message);
+    }
+}
+
+async function updateOrderStatus(orderId, newStatus) {
+    try {
+        const response = await fetch(`/api/kitchen/order/${encodeURIComponent(orderId)}/status`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: newStatus})
+        });
+        
+        if (response.ok) {
+            loadOrders();
+        } else {
+            const data = await response.json().catch(() => ({}));
+            alert('Gagal update status: ' + (data.error || `HTTP ${response.status}`));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error koneksi: ' + error.message);
+    }
+}
+
+async function loadOrders() {
+    try {
+        const response = await fetch('/api/kitchen/orders');
+        const orders = await response.json();
+        
+        const container = document.getElementById('orders-container');
+        const noOrders = document.getElementById('no-orders');
+        
+        if (orders.length === 0) {
+            container.classList.add('hidden');
+            noOrders.classList.remove('hidden');
+            return;
+        }
+        
+        container.classList.remove('hidden');
+        noOrders.classList.add('hidden');
+        
+        container.innerHTML = orders.map(order => {
+            // Determine overall order status based on items
+            const itemStatuses = order.items.map(i => i.item_status);
+            let orderColor = 'border-yellow-500/50';
+            if (itemStatuses.every(s => s === 'served')) orderColor = 'border-gray-500/50';
+            else if (itemStatuses.every(s => s === 'ready' || s === 'served')) orderColor = 'border-green-500/50';
+            else if (itemStatuses.some(s => s === 'cooking')) orderColor = 'border-blue-500/50';
+            
+            return `
+                <div class="glass-card rounded-2xl p-4 border-l-4 ${orderColor}">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <span class="text-lg font-bold">#${escapeHtml(order.order_number)}</span>
+                            <span class="ml-2 text-sm text-gray-400">${escapeHtml(order.created_at)}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 rounded-lg ${order.order_type === 'dine_in' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'} text-xs">
+                                ${order.order_type === 'dine_in' ? 'Meja ' + escapeHtml(order.table) : 'Takeaway'}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="text-sm text-gray-400 mb-3">
+                        <i class="fas fa-user mr-1"></i>${escapeHtml(order.customer_name)}
+                    </div>
+                    
+                    <div class="space-y-2 mb-4">
+                        ${order.items.map(item => `
+                            <div class="flex items-center justify-between p-2 rounded-lg ${getStatusColor(item.item_status)} border">
+                                <div class="flex-1">
+                                    <div class="font-medium">${parseInt(item.quantity)}x ${escapeHtml(item.name)}</div>
+                                    ${item.spice_level ? `<span class="text-xs">🌶️ ${escapeHtml(item.spice_level)}</span>` : ''}
+                                    ${item.temperature ? `<span class="text-xs ml-1">${item.temperature === 'hot' ? '🔥' : '❄️'} ${escapeHtml(item.temperature)}</span>` : ''}
+                                    ${item.notes ? `<div class="text-xs italic opacity-75">${escapeHtml(item.notes)}</div>` : ''}
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs">${getStatusText(item.item_status)}</span>
+                                    ${item.item_status !== 'served' ? `
+                                        <button onclick="updateItemStatus(${parseInt(item.id)}, '${escapeHtml(getNextStatus(item.item_status))}')"
+                                                class="px-2 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-xs">
+                                            ${getButtonText(item.item_status)}
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    ${!itemStatuses.every(s => s === 'served') ? `
+                        <div class="flex space-x-2">
+                            ${itemStatuses.every(s => s === 'pending') ? `
+                                <button onclick="updateOrderStatus(${parseInt(order.id)}, 'cooking')"
+                                        class="flex-1 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm">
+                                    <i class="fas fa-fire mr-1"></i>Masak Semua
+                                </button>
+                            ` : ''}
+                            ${itemStatuses.some(s => s === 'cooking') && !itemStatuses.some(s => s === 'pending') ? `
+                                <button onclick="updateOrderStatus(${parseInt(order.id)}, 'ready')"
+                                        class="flex-1 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm">
+                                    <i class="fas fa-check mr-1"></i>Semua Siap
+                                </button>
+                            ` : ''}
+                            ${itemStatuses.every(s => s === 'ready') ? `
+                                <button onclick="updateOrderStatus(${parseInt(order.id)}, 'served')"
+                                        class="flex-1 py-2 rounded-xl bg-gray-500 hover:bg-gray-600 text-white text-sm">
+                                    <i class="fas fa-hand-holding mr-1"></i>Semua Disajikan
+                                </button>
+                            ` : ''}
+                        </div>
+                    ` : `
+                        <div class="text-center py-2 text-green-400 text-sm">
+                            <i class="fas fa-check-circle mr-1"></i>Pesanan Selesai
+                        </div>
+                    `}
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error loading orders:', error);
+    }
+    
+    countdown = 5;
+}
+
+function startCountdown() {
+    countdownInterval = setInterval(() => {
+        countdown--;
+        document.getElementById('refresh-countdown').textContent = countdown;
+        if (countdown <= 0) {
+            countdown = 5;
+            loadOrders();
+        }
+    }, 1000);
+}
+
+// Initialize
+updateClock();
+setInterval(updateClock, 1000);
+loadOrders();
+startCountdown();
+</script>
+{% endblock %}

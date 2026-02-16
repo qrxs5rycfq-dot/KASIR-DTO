@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>🖨️ Printer Station - Dapoer Teras Obor</title>
+    
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .pulse-green {
+            animation: pulse-green 2s infinite;
+        }
+        
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        }
+        
+        .pulse-yellow {
+            animation: pulse-yellow 1s infinite;
+        }
+        
+        @keyframes pulse-yellow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold mb-2">🖨️ Printer Station</h1>
+            <p class="text-gray-400">Real-time print via WebSocket — struk otomatis dicetak saat pesanan masuk</p>
+            <div class="mt-3 p-3 bg-green-500/20 rounded-xl text-sm">
+                <p class="text-green-300">
+                    <i class="fas fa-bolt"></i>
+                    <strong>WebSocket aktif:</strong> Struk dikirim langsung ke printer tanpa delay polling
+                </p>
+            </div>
+        </div>
+        
+        <!-- WebSocket Status -->
+        <div class="glass-card rounded-2xl p-4 mb-6 border border-emerald-500/30">
+            <div class="flex items-center gap-3">
+                <div id="wsStatusDot" class="w-4 h-4 rounded-full bg-gray-500"></div>
+                <span id="wsStatusText" class="text-sm text-gray-400">WebSocket: Menghubungkan...</span>
+            </div>
+        </div>
+        
+        <!-- Info Card -->
+        <div class="glass-card rounded-2xl p-4 mb-6 border border-blue-500/30">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-info-circle text-blue-400 mt-1"></i>
+                <div class="text-sm">
+                    <p class="text-blue-300 font-semibold">Cara Kerja WebSocket Printer</p>
+                    <p class="text-gray-400 mt-1">
+                        Printer Station terhubung ke server melalui WebSocket. Saat ada pesanan baru, 
+                        server langsung mengirim data struk ke halaman ini secara real-time tanpa delay.
+                        Untuk Android, gunakan aplikasi Print Service yang terhubung di latar belakang.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Connection Status -->
+        <div class="glass-card rounded-2xl p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-bluetooth-b"></i> Koneksi Printer Bluetooth
+            </h2>
+            
+            <div id="connectionStatus" class="flex items-center gap-4 p-4 rounded-xl bg-black/30">
+                <div id="statusDot" class="w-6 h-6 rounded-full bg-gray-500"></div>
+                <div class="flex-1">
+                    <p id="statusText" class="font-semibold text-lg">Tidak Terhubung</p>
+                    <p id="printerName" class="text-sm text-gray-400">Klik tombol di bawah untuk menghubungkan</p>
+                </div>
+            </div>
+            
+            <!-- Auto-reconnect status -->
+            <div id="autoReconnectStatus" class="mt-3 p-3 rounded-xl bg-blue-500/20 border border-blue-500/30 hidden">
+                <div class="flex items-center gap-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent"></div>
+                    <span id="autoReconnectText" class="text-sm text-blue-300">Mencoba auto-connect...</span>
+                </div>
+            </div>
+            
+            <div class="mt-4 flex flex-wrap gap-3">
+                <button id="btnConnect" onclick="connectPrinter()" 
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition flex items-center justify-center gap-2">
+                    <i class="fas fa-bluetooth-b"></i> Hubungkan Printer
+                </button>
+                
+                <button id="btnDisconnect" onclick="disconnectPrinter()" 
+                    class="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-medium transition flex items-center justify-center gap-2 hidden">
+                    <i class="fas fa-unlink"></i> Putuskan
+                </button>
+                
+                <button id="btnReconnect" onclick="tryAutoReconnect()" 
+                    class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl font-medium transition flex items-center justify-center gap-2 hidden">
+                    <i class="fas fa-sync"></i> Reconnect
+                </button>
+            </div>
+            
+            <div id="savedPrinterInfo" class="mt-3 p-3 rounded-xl bg-green-500/20 border border-green-500/30 hidden">
+                <p class="text-sm text-green-300">
+                    <i class="fas fa-memory"></i> Printer tersimpan: <span id="savedPrinterName" class="font-semibold">-</span>
+                </p>
+                <p class="text-xs text-green-400/70 mt-1">Auto-reconnect akan mencoba menghubungkan printer ini</p>
+            </div>
+            
+            <p class="text-xs text-gray-500 mt-3">
+                <i class="fas fa-lightbulb"></i> Tips: Gunakan browser Chrome atau Edge untuk auto-reconnect
+            </p>
+        </div>
+        
+        <!-- Print Queue Status -->
+        <div class="glass-card rounded-2xl p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-list-ol"></i> Antrian Cetak
+            </h2>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-black/30 rounded-xl p-4 text-center">
+                    <p class="text-3xl font-bold text-yellow-400" id="pendingCount">0</p>
+                    <p class="text-sm text-gray-400">Menunggu</p>
+                </div>
+                <div class="bg-black/30 rounded-xl p-4 text-center">
+                    <p class="text-3xl font-bold text-green-400" id="printedCount">0</p>
+                    <p class="text-sm text-gray-400">Berhasil</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-3">
+                <button id="btnProcessQueue" onclick="processQueue()" 
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    disabled>
+                    <i class="fas fa-print"></i> Cetak Sekarang
+                </button>
+                <button onclick="clearQueue()" 
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl font-medium transition flex items-center justify-center gap-2">
+                    <i class="fas fa-trash"></i> Hapus Antrian
+                </button>
+            </div>
+        </div>
+        
+        <!-- Activity Log -->
+        <div class="glass-card rounded-2xl p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-history"></i> Log Aktivitas
+            </h2>
+            
+            <div id="activityLog" class="bg-black/30 rounded-xl p-4 h-48 overflow-y-auto text-sm font-mono">
+                <p class="text-gray-500">Menunggu aktivitas...</p>
+            </div>
+        </div>
+        
+        <!-- Test Print -->
+        <div class="glass-card rounded-2xl p-6">
+            <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-vial"></i> Test Print
+            </h2>
+            
+            <button id="btnTestPrint" onclick="testPrint()" 
+                class="w-full bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled>
+                <i class="fas fa-print"></i> Test Print
+            </button>
+        </div>
+        
+        <!-- Back Link -->
+        <div class="text-center mt-8">
+            <a href="{{ url_for('pos') }}" class="text-gray-400 hover:text-white transition">
+                <i class="fas fa-arrow-left"></i> Kembali ke POS
+            </a>
+        </div>
+    </div>
+    
+    <!-- Audio for notification -->
+    <audio id="printSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRl9vT19teleeBAAA" type="audio/wav">
+    </audio>
+    
+    <script>
+        // Printer state
+        let device = null;
+        let characteristic = null;
+        let isConnected = false;
+        let printedCount = 0;
+        let checkInterval = null;
+        let isProcessing = false; // Prevent race condition
+        let autoReconnectInterval = null;
+        let reconnectAttempts = 0;
+        let continuousReconnectInterval = null; // For always-on reconnect
+        const MAX_RECONNECT_ATTEMPTS = 100; // Much higher for persistence
+        const RECONNECT_INTERVAL = 2000; // 2 seconds - faster polling
+        const CONTINUOUS_CHECK_INTERVAL = 5000; // 5 seconds for continuous check
+        
+        // CSRF Token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        // Override fetch to include CSRF token
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            if (url.toString().startsWith('/') || url.toString().startsWith(window.location.origin)) {
+                options.headers = options.headers || {};
+                if (!(options.headers instanceof Headers)) {
+                    options.headers['X-CSRFToken'] = csrfToken;
+                }
+            }
+            return originalFetch(url, options);
+        };
+        
+        // Saved printer info (from localStorage)
+        const SAVED_PRINTER_KEY = 'printer_station_saved_device';
+        
+        // ESC/POS Commands
+        const ESC_POS = {
+            INIT: [0x1B, 0x40],
+            ALIGN_CENTER: [0x1B, 0x61, 0x01],
+            ALIGN_LEFT: [0x1B, 0x61, 0x00],
+            BOLD_ON: [0x1B, 0x45, 0x01],
+            BOLD_OFF: [0x1B, 0x45, 0x00],
+            CUT_PAPER: [0x1D, 0x56, 0x00],
+            FEED_LINES: (n) => [0x1B, 0x64, n],
+        };
+        
+        // Log activity
+        function logActivity(message, type = 'info') {
+            const log = document.getElementById('activityLog');
+            const time = new Date().toLocaleTimeString('id-ID');
+            const colors = {
+                info: 'text-blue-400',
+                success: 'text-green-400',
+                error: 'text-red-400',
+                warning: 'text-yellow-400'
+            };
+            
+            const entry = document.createElement('p');
+            entry.className = colors[type] || colors.info;
+            entry.textContent = `[${time}] ${message}`;
+            
+            // Remove placeholder if exists
+            const placeholder = log.querySelector('.text-gray-500');
+            if (placeholder) placeholder.remove();
+            
+            log.insertBefore(entry, log.firstChild);
+            
+            // Keep only last 50 entries
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+        
+        // Update UI based on connection state
+        function updateUI() {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const printerName = document.getElementById('printerName');
+            const btnConnect = document.getElementById('btnConnect');
+            const btnDisconnect = document.getElementById('btnDisconnect');
+            const btnReconnect = document.getElementById('btnReconnect');
+            const btnTestPrint = document.getElementById('btnTestPrint');
+            const btnProcessQueue = document.getElementById('btnProcessQueue');
+            const savedPrinterInfo = document.getElementById('savedPrinterInfo');
+            const savedPrinterName = document.getElementById('savedPrinterName');
+            
+            // Check for saved printer
+            const savedPrinter = getSavedPrinter();
+            
+            if (isConnected && device) {
+                statusDot.className = 'w-6 h-6 rounded-full bg-green-500 pulse-green';
+                statusText.textContent = 'Terhubung';
+                statusText.className = 'font-semibold text-lg text-green-400';
+                printerName.textContent = device.name || 'Printer';
+                btnConnect.classList.add('hidden');
+                btnDisconnect.classList.remove('hidden');
+                btnReconnect.classList.add('hidden');
+                btnTestPrint.disabled = false;
+                btnProcessQueue.disabled = false;
+                savedPrinterInfo.classList.add('hidden');
+            } else {
+                statusDot.className = 'w-6 h-6 rounded-full bg-gray-500';
+                statusText.textContent = 'Tidak Terhubung';
+                statusText.className = 'font-semibold text-lg text-gray-400';
+                printerName.textContent = 'Klik tombol di bawah untuk menghubungkan';
+                btnConnect.classList.remove('hidden');
+                btnDisconnect.classList.add('hidden');
+                btnTestPrint.disabled = true;
+                btnProcessQueue.disabled = true;
+                
+                // Show reconnect button if we have a saved printer
+                if (savedPrinter) {
+                    btnReconnect.classList.remove('hidden');
+                    savedPrinterInfo.classList.remove('hidden');
+                    savedPrinterName.textContent = savedPrinter.name;
+                } else {
+                    btnReconnect.classList.add('hidden');
+                    savedPrinterInfo.classList.add('hidden');
+                }
+            }
+        }
+        
+        // Save printer to localStorage
+        function savePrinterToLocal(name, id) {
+            const printerInfo = { name, id, savedAt: new Date().toISOString() };
+            localStorage.setItem(SAVED_PRINTER_KEY, JSON.stringify(printerInfo));
+            logActivity(`Printer "${name}" tersimpan untuk auto-reconnect`, 'success');
+        }
+        
+        // Get saved printer from localStorage
+        function getSavedPrinter() {
+            try {
+                const saved = localStorage.getItem(SAVED_PRINTER_KEY);
+                return saved ? JSON.parse(saved) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        // Clear saved printer
+        function clearSavedPrinter() {
+            localStorage.removeItem(SAVED_PRINTER_KEY);
+        }
+        
+        // Show/hide auto-reconnect status
+        function showAutoReconnectStatus(show, message = 'Mencoba auto-connect...') {
+            const el = document.getElementById('autoReconnectStatus');
+            const textEl = document.getElementById('autoReconnectText');
+            if (show) {
+                el.classList.remove('hidden');
+                textEl.textContent = message;
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+        
+        // Connect to printer
+        async function connectPrinter() {
+            if (!navigator.bluetooth) {
+                logActivity('Bluetooth tidak didukung di browser ini', 'error');
+                alert('Browser tidak mendukung Bluetooth. Gunakan Chrome/Edge.');
+                return;
+            }
+            
+            try {
+                logActivity('Mencari printer...', 'info');
+                
+                device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        '000018f0-0000-1000-8000-00805f9b34fb',
+                        '0000ff00-0000-1000-8000-00805f9b34fb',
+                        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                        '0000ffe0-0000-1000-8000-00805f9b34fb'
+                    ]
+                });
+                
+                logActivity(`Menghubungkan ke ${device.name}...`, 'info');
+                
+                device.addEventListener('gattserverdisconnected', onDisconnected);
+                
+                const server = await device.gatt.connect();
+                
+                // Find writable characteristic
+                const serviceUUIDs = [
+                    '000018f0-0000-1000-8000-00805f9b34fb',
+                    '0000ff00-0000-1000-8000-00805f9b34fb',
+                    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                    '0000ffe0-0000-1000-8000-00805f9b34fb'
+                ];
+                
+                for (const uuid of serviceUUIDs) {
+                    try {
+                        const service = await server.getPrimaryService(uuid);
+                        const chars = await service.getCharacteristics();
+                        
+                        for (const char of chars) {
+                            if (char.properties.write || char.properties.writeWithoutResponse) {
+                                characteristic = char;
+                                isConnected = true;
+                                
+                                // Save to database AND localStorage
+                                await savePrinterStatus(device.name, device.id);
+                                savePrinterToLocal(device.name, device.id);
+                                
+                                logActivity(`✅ Terhubung ke ${device.name}!`, 'success');
+                                showAutoReconnectStatus(false);
+                                stopAutoReconnect();
+                                stopContinuousReconnect(); // Stop continuous reconnect too
+                                reconnectAttempts = 0;
+                                updateUI();
+                                
+                                // Start checking for pending prints
+                                startPendingChecker();
+                                
+                                // Process any pending prints immediately
+                                setTimeout(() => processQueue(), 2000);
+                                
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+                
+                throw new Error('Tidak ditemukan karakteristik yang dapat ditulis');
+                
+            } catch (error) {
+                logActivity(`Error: ${error.message}`, 'error');
+                console.error('Connection error:', error);
+            }
+        }
+        
+        // Disconnect printer
+        function disconnectPrinter() {
+            if (device && device.gatt.connected) {
+                device.gatt.disconnect();
+            }
+            stopPendingChecker();
+        }
+        
+        // Handle disconnection
+        function onDisconnected() {
+            isConnected = false;
+            characteristic = null;
+            logActivity('⚠️ Printer terputus', 'warning');
+            updateUI();
+            stopPendingChecker();
+            
+            // Start continuous auto-reconnect (will keep trying indefinitely)
+            const savedPrinter = getSavedPrinter();
+            if (savedPrinter) {
+                logActivity('Memulai mode auto-reconnect...', 'info');
+                reconnectAttempts = 0;
+                startContinuousReconnect();
+            }
+        }
+        
+        // Try to auto-reconnect using getDevices API
+        async function tryAutoReconnect() {
+            // Check if getDevices is supported
+            if (!navigator.bluetooth || !navigator.bluetooth.getDevices) {
+                logActivity('Auto-reconnect tidak didukung browser ini', 'warning');
+                showAutoReconnectStatus(false);
+                return false;
+            }
+            
+            const savedPrinter = getSavedPrinter();
+            if (!savedPrinter) {
+                logActivity('Tidak ada printer tersimpan', 'info');
+                showAutoReconnectStatus(false);
+                return false;
+            }
+            
+            showAutoReconnectStatus(true, `Mencari ${savedPrinter.name}... (${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+            
+            try {
+                // Get previously paired devices
+                const devices = await navigator.bluetooth.getDevices();
+                logActivity(`Ditemukan ${devices.length} device tersimpan`, 'info');
+                
+                // Find our saved printer
+                const targetDevice = devices.find(d => 
+                    d.name === savedPrinter.name || d.id === savedPrinter.id
+                );
+                
+                if (!targetDevice) {
+                    logActivity(`Printer "${savedPrinter.name}" tidak ditemukan dalam daftar device`, 'warning');
+                    showAutoReconnectStatus(false);
+                    return false;
+                }
+                
+                logActivity(`Mencoba reconnect ke ${targetDevice.name}...`, 'info');
+                
+                // Try to connect
+                device = targetDevice;
+                device.addEventListener('gattserverdisconnected', onDisconnected);
+                
+                // Use watchAdvertisements if available for better connection
+                if (targetDevice.watchAdvertisements) {
+                    try {
+                        const abortController = new AbortController();
+                        await targetDevice.watchAdvertisements({ signal: abortController.signal });
+                        
+                        // Wait for advertisement
+                        await new Promise((resolve, reject) => {
+                            const timeout = setTimeout(() => {
+                                abortController.abort();
+                                reject(new Error('Timeout menunggu advertisement'));
+                            }, 5000);
+                            
+                            targetDevice.addEventListener('advertisementreceived', () => {
+                                clearTimeout(timeout);
+                                abortController.abort();
+                                resolve();
+                            }, { once: true });
+                        });
+                    } catch (e) {
+                        // watchAdvertisements might fail, continue with direct connect
+                        console.log('watchAdvertisements failed, trying direct connect:', e);
+                    }
+                }
+                
+                showAutoReconnectStatus(true, `Menghubungkan ke ${targetDevice.name}...`);
+                const server = await device.gatt.connect();
+                
+                // Find writable characteristic
+                const serviceUUIDs = [
+                    '000018f0-0000-1000-8000-00805f9b34fb',
+                    '0000ff00-0000-1000-8000-00805f9b34fb',
+                    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                    '0000ffe0-0000-1000-8000-00805f9b34fb'
+                ];
+                
+                for (const uuid of serviceUUIDs) {
+                    try {
+                        const service = await server.getPrimaryService(uuid);
+                        const chars = await service.getCharacteristics();
+                        
+                        for (const char of chars) {
+                            if (char.properties.write || char.properties.writeWithoutResponse) {
+                                characteristic = char;
+                                isConnected = true;
+                                
+                                logActivity(`Auto-reconnect berhasil ke ${device.name}!`, 'success');
+                                showAutoReconnectStatus(false);
+                                stopAutoReconnect();
+                                reconnectAttempts = 0;
+                                updateUI();
+                                
+                                // Start checking for pending prints
+                                startPendingChecker();
+                                
+                                // Process any pending prints immediately
+                                setTimeout(() => processQueue(), 2000);
+                                
+                                return true;
+                            }
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+                
+                throw new Error('Tidak ditemukan karakteristik yang dapat ditulis');
+                
+            } catch (error) {
+                logActivity(`Auto-reconnect gagal: ${error.message}`, 'error');
+                showAutoReconnectStatus(false);
+                return false;
+            }
+        }
+        
+        // Start auto-reconnect loop
+        function startAutoReconnect() {
+            stopAutoReconnect();
+            reconnectAttempts = 0;
+            
+            autoReconnectInterval = setInterval(async () => {
+                if (isConnected) {
+                    stopAutoReconnect();
+                    return;
+                }
+                
+                reconnectAttempts++;
+                
+                if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+                    logActivity(`Auto-reconnect berhenti setelah ${MAX_RECONNECT_ATTEMPTS} percobaan`, 'warning');
+                    stopAutoReconnect();
+                    showAutoReconnectStatus(false);
+                    return;
+                }
+                
+                await tryAutoReconnect();
+                
+            }, RECONNECT_INTERVAL);
+            
+            // Try immediately
+            tryAutoReconnect();
+        }
+        
+        // Stop auto-reconnect loop
+        function stopAutoReconnect() {
+            if (autoReconnectInterval) {
+                clearInterval(autoReconnectInterval);
+                autoReconnectInterval = null;
+            }
+        }
+        
+        // Start continuous background check for printer
+        // This runs ALWAYS when not connected, trying to detect when printer comes back
+        function startContinuousReconnect() {
+            if (continuousReconnectInterval) return; // Already running
+            
+            logActivity('Mode auto-reconnect aktif (akan terus mencoba)', 'info');
+            
+            continuousReconnectInterval = setInterval(async () => {
+                if (isConnected) return; // Skip if already connected
+                
+                // Check if getDevices is supported
+                if (navigator.bluetooth && navigator.bluetooth.getDevices) {
+                    try {
+                        const devices = await navigator.bluetooth.getDevices();
+                        const savedPrinter = getSavedPrinter();
+                        
+                        if (savedPrinter && devices.length > 0) {
+                            const targetDevice = devices.find(d => 
+                                d.name === savedPrinter.name || d.id === savedPrinter.id
+                            );
+                            
+                            if (targetDevice) {
+                                // Check if device might be available (has gatt)
+                                if (targetDevice.gatt) {
+                                    logActivity(`Printer "${targetDevice.name}" terdeteksi, mencoba connect...`, 'info');
+                                    
+                                    try {
+                                        device = targetDevice;
+                                        device.addEventListener('gattserverdisconnected', onDisconnected);
+                                        
+                                        const server = await device.gatt.connect();
+                                        
+                                        // Find writable characteristic
+                                        const serviceUUIDs = [
+                                            '000018f0-0000-1000-8000-00805f9b34fb',
+                                            '0000ff00-0000-1000-8000-00805f9b34fb',
+                                            '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                                            '0000ffe0-0000-1000-8000-00805f9b34fb'
+                                        ];
+                                        
+                                        for (const uuid of serviceUUIDs) {
+                                            try {
+                                                const service = await server.getPrimaryService(uuid);
+                                                const chars = await service.getCharacteristics();
+                                                
+                                                for (const char of chars) {
+                                                    if (char.properties.write || char.properties.writeWithoutResponse) {
+                                                        characteristic = char;
+                                                        isConnected = true;
+                                                        
+                                                        logActivity(`✅ AUTO-RECONNECT BERHASIL ke ${device.name}!`, 'success');
+                                                        showAutoReconnectStatus(false);
+                                                        reconnectAttempts = 0;
+                                                        updateUI();
+                                                        
+                                                        // Start checking for pending prints
+                                                        startPendingChecker();
+                                                        
+                                                        // Process any pending prints immediately
+                                                        setTimeout(() => processQueue(), 2000);
+                                                        
+                                                        return;
+                                                    }
+                                                }
+                                            } catch (e) {
+                                                continue;
+                                            }
+                                        }
+                                    } catch (connErr) {
+                                        // Connection failed, printer might be off
+                                        console.log('Connection attempt failed:', connErr.message);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.log('Background check error:', err.message);
+                    }
+                }
+                
+                // Update reconnect status indicator
+                reconnectAttempts++;
+                const savedPrinter = getSavedPrinter();
+                if (savedPrinter) {
+                    showAutoReconnectStatus(true, `Menunggu ${savedPrinter.name}... (cek ke-${reconnectAttempts})`);
+                }
+                
+            }, CONTINUOUS_CHECK_INTERVAL);
+        }
+        
+        // Stop continuous reconnect
+        function stopContinuousReconnect() {
+            if (continuousReconnectInterval) {
+                clearInterval(continuousReconnectInterval);
+                continuousReconnectInterval = null;
+            }
+        }
+        
+        // Save printer status to database
+        async function savePrinterStatus(name, id) {
+            try {
+                await fetch('/api/printer-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ printer_name: name, printer_id: id })
+                });
+            } catch (error) {
+                console.error('Error saving printer status:', error);
+            }
+        }
+        
+        // Print raw data
+        async function printRaw(data) {
+            if (!isConnected || !characteristic) {
+                throw new Error('Printer tidak terhubung');
+            }
+            
+            const chunkSize = 100;
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const chunk = data.slice(i, i + chunkSize);
+                if (characteristic.properties.writeWithoutResponse) {
+                    await characteristic.writeValueWithoutResponse(new Uint8Array(chunk));
+                } else {
+                    await characteristic.writeValue(new Uint8Array(chunk));
+                }
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        }
+        
+        // Test print
+        async function testPrint() {
+            if (!isConnected) {
+                logActivity('Printer tidak terhubung', 'error');
+                return;
+            }
+            
+            try {
+                logActivity('Mencetak test...', 'info');
+                
+                const encoder = new TextEncoder();
+                let commands = [];
+                
+                commands.push(...ESC_POS.INIT);
+                commands.push(...ESC_POS.ALIGN_CENTER);
+                commands.push(...ESC_POS.BOLD_ON);
+                commands.push(...encoder.encode('=== TEST PRINT ===\n'));
+                commands.push(...ESC_POS.BOLD_OFF);
+                commands.push(...encoder.encode('Printer Station\n'));
+                commands.push(...encoder.encode('Dapoer Teras Obor\n'));
+                commands.push(...encoder.encode(`${new Date().toLocaleString('id-ID')}\n`));
+                commands.push(...encoder.encode('\nPrinter berfungsi dengan baik!\n'));
+                commands.push(...ESC_POS.FEED_LINES(4));
+                commands.push(...ESC_POS.CUT_PAPER);
+                
+                await printRaw(commands);
+                
+                logActivity('Test print berhasil!', 'success');
+            } catch (error) {
+                logActivity(`Test print gagal: ${error.message}`, 'error');
+            }
+        }
+        
+        // ============================================================
+        // WebSocket Connection for Real-Time Print Jobs
+        // ============================================================
+        const socket = io({
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000
+        });
+        
+        socket.on('connect', () => {
+            logActivity('🟢 WebSocket terhubung ke server', 'success');
+            document.getElementById('wsStatusDot').className = 'w-4 h-4 rounded-full bg-green-500 pulse-green';
+            document.getElementById('wsStatusText').textContent = 'WebSocket: Terhubung';
+            document.getElementById('wsStatusText').className = 'text-sm text-green-400';
+            // Join branch room (use 'all' for admin/owner)
+            socket.emit('join_branch', { branch_id: '{{ current_user.branch_id or "all" }}' });
+        });
+        
+        socket.on('disconnect', () => {
+            logActivity('🔴 WebSocket terputus, mencoba reconnect...', 'warning');
+            document.getElementById('wsStatusDot').className = 'w-4 h-4 rounded-full bg-red-500';
+            document.getElementById('wsStatusText').textContent = 'WebSocket: Terputus (reconnecting...)';
+            document.getElementById('wsStatusText').className = 'text-sm text-red-400';
+        });
+        
+        socket.on('reconnect', (attempt) => {
+            logActivity(`🟢 WebSocket reconnected setelah ${attempt} percobaan`, 'success');
+        });
+        
+        // Real-time print job received via WebSocket
+        socket.on('new_print_job', async (data) => {
+            logActivity(`🔔 STRUK BARU #${data.id} diterima via WebSocket!`, 'warning');
+            playNotificationSound();
+            flashPendingIndicator();
+            
+            // Update pending count
+            await refreshPendingCount();
+            
+            // Auto-print if connected
+            if (isConnected && !isProcessing) {
+                logActivity('⏳ Auto-print dimulai...', 'info');
+                await processQueue();
+            }
+        });
+        
+        // Print status updates
+        socket.on('print_status', (data) => {
+            logActivity(`Struk #${data.print_id} → ${data.status}`, data.status === 'completed' ? 'success' : 'warning');
+        });
+        
+        // Refresh pending count from server
+        async function refreshPendingCount() {
+            try {
+                const response = await fetch('/api/pending-prints');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('pendingCount').textContent = data.count || 0;
+                }
+            } catch (e) {
+                console.error('Error refreshing count:', e);
+            }
+        }
+        
+        // Start checking for pending prints (WebSocket + polling fallback)
+        function startPendingChecker() {
+            stopPendingChecker();
+            
+            // Initial load
+            refreshPendingCount();
+            
+            // Fallback polling every 30 seconds (in case WebSocket missed something)
+            checkInterval = setInterval(async () => {
+                await refreshPendingCount();
+                // Also auto-process if connected and have pending items
+                const countEl = document.getElementById('pendingCount');
+                const count = parseInt(countEl.textContent) || 0;
+                if (isConnected && count > 0 && !isProcessing) {
+                    logActivity(`⏳ Fallback: memproses ${count} struk pending...`, 'info');
+                    await processQueue();
+                }
+            }, 30000);
+            logActivity('Auto-check aktif (WebSocket + fallback 30s)', 'info');
+        }
+        
+        // Stop checking
+        function stopPendingChecker() {
+            if (checkInterval) {
+                clearInterval(checkInterval);
+                checkInterval = null;
+            }
+        }
+        
+        
+        // Play notification sound
+        function playNotificationSound() {
+            try {
+                // Simple beep using AudioContext
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                gainNode.gain.value = 0.3;
+                
+                oscillator.start();
+                setTimeout(() => oscillator.stop(), 200);
+            } catch (e) {
+                console.log('Audio not available');
+            }
+        }
+        
+        // Flash the pending indicator
+        function flashPendingIndicator() {
+            const pendingEl = document.getElementById('pendingCount');
+            if (pendingEl) {
+                pendingEl.classList.add('animate-ping');
+                setTimeout(() => pendingEl.classList.remove('animate-ping'), 1000);
+            }
+            
+            // Also flash page title
+            let flashCount = 0;
+            const flashInterval = setInterval(() => {
+                document.title = flashCount % 2 === 0 ? '🔔 STRUK BARU!' : '🖨️ Printer Station';
+                flashCount++;
+                if (flashCount >= 6) {
+                    clearInterval(flashInterval);
+                    document.title = isConnected ? '🟢 Printer Station' : '🔴 Printer Station';
+                }
+            }, 500);
+        }
+        
+        // Process print queue
+        async function processQueue() {
+            // Prevent concurrent processing (race condition fix)
+            if (isProcessing) {
+                console.log('Already processing queue, skipping...');
+                return;
+            }
+            
+            if (!isConnected) {
+                logActivity('Printer tidak terhubung', 'error');
+                return;
+            }
+            
+            isProcessing = true;
+            
+            try {
+                const response = await fetch('/api/pending-prints');
+                if (!response.ok) {
+                    logActivity('Gagal mengambil data antrian', 'error');
+                    isProcessing = false;
+                    return;
+                }
+                
+                const data = await response.json();
+                if (!data.success || data.pending_prints.length === 0) {
+                    logActivity('Tidak ada struk pending', 'info');
+                    isProcessing = false;
+                    return;
+                }
+                
+                logActivity(`Memproses ${data.pending_prints.length} struk...`, 'info');
+                let successCount = 0;
+                let failCount = 0;
+                
+                for (const item of data.pending_prints) {
+                    try {
+                        const receiptData = JSON.parse(item.receipt_data);
+                        await printRaw(receiptData);
+                        
+                        // Mark as completed via WebSocket + HTTP fallback
+                        socket.emit('print_complete', { print_id: item.id });
+                        await fetch(`/api/pending-prints/${item.id}/complete`, { method: 'POST' });
+                        
+                        printedCount++;
+                        successCount++;
+                        document.getElementById('printedCount').textContent = printedCount;
+                        logActivity(`Struk #${item.id} berhasil dicetak`, 'success');
+                        
+                        // Delay between prints
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        
+                    } catch (error) {
+                        logActivity(`Gagal cetak struk #${item.id}: ${error.message}`, 'error');
+                        failCount++;
+                        
+                        // Mark as failed via WebSocket + HTTP fallback
+                        socket.emit('print_failed', { print_id: item.id, error: error.message });
+                        await fetch(`/api/pending-prints/${item.id}/fail`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ error_message: error.message })
+                        });
+                    }
+                }
+                
+                // Refresh actual count from server
+                await refreshPendingCount();
+                
+                logActivity(`Selesai: ${successCount} berhasil, ${failCount} gagal`, 'info');
+                
+            } catch (error) {
+                logActivity(`Error: ${error.message}`, 'error');
+            } finally {
+                isProcessing = false;
+            }
+        }
+        
+        // Clear queue
+        async function clearQueue() {
+            if (!confirm('Yakin ingin menghapus semua antrian?')) return;
+            
+            try {
+                await fetch('/api/pending-prints/clear', { method: 'POST' });
+                document.getElementById('pendingCount').textContent = '0';
+                logActivity('Antrian dihapus', 'info');
+            } catch (error) {
+                logActivity(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            logActivity('Printer Station dimulai (WebSocket mode)', 'info');
+            updateUI();
+            refreshPendingCount();
+            
+            // Check for saved printer and start continuous auto-connect
+            const savedPrinter = getSavedPrinter();
+            if (savedPrinter) {
+                logActivity(`📌 Printer tersimpan: ${savedPrinter.name}`, 'info');
+                logActivity('Mode auto-reconnect akan terus mencoba menghubungkan...', 'info');
+                
+                // Start continuous reconnect immediately
+                setTimeout(() => {
+                    if (!isConnected) {
+                        startContinuousReconnect();
+                    }
+                }, 1000);
+            } else {
+                logActivity('💡 Silakan hubungkan printer (akan disimpan untuk auto-reconnect)', 'info');
+            }
+            
+            // Check if getDevices is supported
+            if (!navigator.bluetooth || !navigator.bluetooth.getDevices) {
+                logActivity('⚠️ Browser tidak mendukung getDevices() - auto-reconnect terbatas', 'warning');
+                logActivity('💡 Gunakan Chrome 85+ untuk auto-reconnect terbaik', 'info');
+            }
+            
+            // Warn before closing
+            window.addEventListener('beforeunload', (e) => {
+                if (isConnected) {
+                    e.preventDefault();
+                    e.returnValue = 'Printer masih terhubung. Yakin ingin menutup?';
+                }
+            });
+            
+            // Handle visibility change - trigger immediate check when tab becomes visible
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && !isConnected) {
+                    const savedPrinter = getSavedPrinter();
+                    if (savedPrinter) {
+                        logActivity('Tab aktif kembali, mencoba reconnect...', 'info');
+                        // If not running, start continuous reconnect
+                        if (!continuousReconnectInterval) {
+                            startContinuousReconnect();
+                        }
+                    }
+                }
+            });
+        });
+        
+        // Keep page active (prevent sleep) and show reconnect status
+        setInterval(() => {
+            if (isConnected) {
+                document.title = '🟢 Printer Station';
+            } else {
+                const savedPrinter = getSavedPrinter();
+                if (savedPrinter && continuousReconnectInterval) {
+                    document.title = '🔄 Menunggu Printer...';
+                } else {
+                    document.title = '🔴 Printer Station';
+                }
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

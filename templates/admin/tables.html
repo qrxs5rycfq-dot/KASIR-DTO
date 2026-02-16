@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Manajemen Meja - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    {% set active_page = 'admin_tables' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Manajemen Meja & QR Code</h1>
+                <p class="text-gray-400">Kelola meja dan generate QR code untuk pesanan online</p>
+            </div>
+            <button onclick="document.getElementById('add-modal').classList.remove('hidden')" 
+                    class="px-4 py-2 btn-primary rounded-xl text-white">
+                <i class="fas fa-plus mr-2"></i>Tambah Meja
+            </button>
+        </header>
+        
+        <!-- Legend -->
+        <div class="glass-card rounded-2xl p-4 mb-6 flex items-center space-x-6">
+            <span class="flex items-center"><span class="w-4 h-4 rounded bg-green-500 mr-2"></span>Tersedia</span>
+            <span class="flex items-center"><span class="w-4 h-4 rounded bg-yellow-500 mr-2"></span>Terisi</span>
+            <span class="flex items-center"><span class="w-4 h-4 rounded bg-blue-500 mr-2"></span>Reserved</span>
+        </div>
+        
+        <!-- Tables Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {% for table in tables %}
+            <div class="glass-card rounded-2xl p-4 text-center relative group">
+                <!-- Delete button -->
+                <button data-table-id="{{ table.id }}" data-table-number="{{ table.number }}"
+                        onclick="confirmDelete(this.dataset.tableId, this.dataset.tableNumber)" 
+                        class="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/40 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                        aria-label="Hapus meja {{ table.number }}">
+                    <i class="fas fa-times"></i>
+                </button>
+                
+                <div data-table-id="{{ table.id }}"
+                     onclick="toggleStatus(this.dataset.tableId)" 
+                     onkeypress="if(event.key==='Enter')toggleStatus(this.dataset.tableId)"
+                     tabindex="0"
+                     role="button"
+                     aria-label="Toggle status meja {{ table.number }}"
+                     class="w-16 h-16 mx-auto rounded-xl flex items-center justify-center text-2xl font-bold mb-3 cursor-pointer hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-primary-500
+                    {% if table.status == 'available' %}bg-green-500/20 text-green-400
+                    {% elif table.status == 'occupied' %}bg-yellow-500/20 text-yellow-400
+                    {% else %}bg-blue-500/20 text-blue-400{% endif %}" id="table-box-{{ table.id }}">
+                    {{ table.number }}
+                </div>
+                <h3 class="font-semibold">{{ table.name or 'Meja ' ~ table.number }}</h3>
+                <p class="text-sm text-gray-400 mb-3">Kapasitas: {{ table.capacity }} orang</p>
+                <p class="text-xs mb-3" id="table-status-{{ table.id }}">
+                    <span class="{% if table.status == 'available' %}text-green-400{% elif table.status == 'occupied' %}text-yellow-400{% else %}text-blue-400{% endif %}">
+                        {{ 'Tersedia' if table.status == 'available' else ('Terisi' if table.status == 'occupied' else 'Reserved') }}
+                    </span>
+                </p>
+                <div class="flex space-x-2 justify-center">
+                    <button data-table-id="{{ table.id }}" data-table-number="{{ table.number }}"
+                            onclick="generateQR(this.dataset.tableId, this.dataset.tableNumber)" 
+                            class="px-3 py-1.5 rounded-lg bg-primary-500/20 text-primary-400 text-sm hover:bg-primary-500/30">
+                        <i class="fas fa-qrcode mr-1"></i>QR
+                    </button>
+                    <a href="{{ url_for('online_order', table_number=table.number) }}" target="_blank"
+                       class="px-3 py-1.5 rounded-lg bg-white/10 text-gray-300 text-sm hover:bg-white/20">
+                        <i class="fas fa-external-link-alt mr-1"></i>Link
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+</div>
+
+<!-- Add Table Modal -->
+<div id="add-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-4">Tambah Meja Baru</h3>
+        <form action="{{ url_for('admin_table_add') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Nomor Meja *</label>
+                    <input type="text" name="number" required 
+                           class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white"
+                           placeholder="Contoh: 21">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Nama Meja</label>
+                    <input type="text" name="name" 
+                           class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white"
+                           placeholder="Contoh: VIP Corner">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Kapasitas</label>
+                    <select name="capacity" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white">
+                        <option value="2">2 orang</option>
+                        <option value="4" selected>4 orang</option>
+                        <option value="6">6 orang</option>
+                        <option value="8">8 orang</option>
+                        <option value="10">10 orang</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button type="button" onclick="document.getElementById('add-modal').classList.add('hidden')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300">Batal</button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl btn-primary text-white">
+                    <i class="fas fa-plus mr-2"></i>Tambah
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-sm text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-red-500/20 flex items-center justify-center mb-4">
+            <i class="fas fa-trash text-2xl text-red-400"></i>
+        </div>
+        <h3 class="text-lg font-semibold mb-2">Hapus Meja <span id="delete-table-number"></span>?</h3>
+        <p class="text-sm text-gray-400 mb-6">Tindakan ini tidak dapat dibatalkan.</p>
+        <form id="delete-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="flex space-x-3">
+                <button type="button" onclick="document.getElementById('delete-modal').classList.add('hidden')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300">Batal</button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white">
+                    <i class="fas fa-trash mr-2"></i>Hapus
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- QR Code Modal -->
+<div id="qr-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-sm text-center">
+        <h3 class="text-lg font-semibold mb-4">QR Code Meja <span id="qr-table-number"></span></h3>
+        <div id="qr-code-container" class="bg-white rounded-xl p-4 mb-4 inline-block">
+            <img id="qr-code-img" src="" alt="QR Code" class="w-48 h-48">
+        </div>
+        <p class="text-sm text-gray-400 mb-4">Scan QR code ini untuk memesan dari meja</p>
+        <div class="flex space-x-3">
+            <button onclick="document.getElementById('qr-modal').classList.add('hidden')" 
+                    class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300">Tutup</button>
+            <button onclick="downloadQR()" class="flex-1 py-2.5 rounded-xl btn-primary text-white">
+                <i class="fas fa-download mr-2"></i>Download
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+async function generateQR(tableId, tableNumber) {
+    try {
+        const response = await fetch(`/admin/tables/${tableId}/qr`);
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('qr-table-number').textContent = tableNumber;
+            document.getElementById('qr-code-img').src = data.qr_code;
+            document.getElementById('qr-modal').classList.remove('hidden');
+        }
+    } catch (error) {
+        alert('Error generating QR: ' + error.message);
+    }
+}
+
+function downloadQR() {
+    const img = document.getElementById('qr-code-img');
+    const link = document.createElement('a');
+    link.download = `qr-meja-${document.getElementById('qr-table-number').textContent}.png`;
+    link.href = img.src;
+    link.click();
+}
+
+function confirmDelete(tableId, tableNumber) {
+    document.getElementById('delete-table-number').textContent = tableNumber;
+    document.getElementById('delete-form').action = `/admin/tables/${tableId}/delete`;
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+async function toggleStatus(tableId) {
+    try {
+        const response = await fetch(`/admin/tables/${tableId}/toggle`, {method: 'POST'});
+        const data = await response.json();
+        
+        if (data.success) {
+            location.reload();
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

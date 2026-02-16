@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+
+{% block title %}Manajemen Diskon & Promo - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    {% set active_page = 'admin_discounts' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Manajemen Diskon & Promo</h1>
+                <p class="text-gray-400">Kelola diskon dan kode promo untuk pelanggan</p>
+            </div>
+            <button onclick="document.getElementById('add-modal').classList.remove('hidden')" 
+                    class="px-4 py-2 btn-primary rounded-xl text-white">
+                <i class="fas fa-plus mr-2"></i>Tambah Promo
+            </button>
+        </header>
+        
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="glass-card rounded-2xl p-4">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center mr-4">
+                        <i class="fas fa-check-circle text-green-400 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-sm">Promo Aktif</p>
+                        <p class="text-2xl font-bold">{{ discounts|selectattr('is_active')|list|length }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-card rounded-2xl p-4">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center mr-4">
+                        <i class="fas fa-tag text-yellow-400 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-sm">Total Promo</p>
+                        <p class="text-2xl font-bold">{{ discounts|length }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-card rounded-2xl p-4">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center mr-4">
+                        <i class="fas fa-receipt text-blue-400 text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 text-sm">Total Penggunaan</p>
+                        <p class="text-2xl font-bold">{{ discounts|sum(attribute='usage_count') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Discounts Table -->
+        <div class="glass-card rounded-2xl overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-white/5">
+                    <tr>
+                        <th class="text-left py-4 px-4">Nama Promo</th>
+                        <th class="text-left py-4 px-4">Kode</th>
+                        <th class="text-left py-4 px-4">Diskon</th>
+                        <th class="text-left py-4 px-4">Min. Belanja</th>
+                        <th class="text-left py-4 px-4">Penggunaan</th>
+                        <th class="text-left py-4 px-4">Periode</th>
+                        <th class="text-left py-4 px-4">Status</th>
+                        <th class="text-left py-4 px-4">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for discount in discounts %}
+                    <tr class="border-t border-white/10 hover:bg-white/5">
+                        <td class="py-4 px-4">
+                            <div class="font-semibold">{{ discount.name }}</div>
+                            {% if discount.description %}
+                            <div class="text-sm text-gray-400">{{ discount.description[:50] }}{{ '...' if discount.description|length > 50 }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="py-4 px-4">
+                            <span class="px-3 py-1 rounded-lg bg-primary-500/20 text-primary-400 font-mono font-bold">
+                                {{ discount.code }}
+                            </span>
+                        </td>
+                        <td class="py-4 px-4">
+                            {% if discount.discount_type == 'percentage' %}
+                                <span class="text-green-400 font-bold">{{ discount.value }}%</span>
+                                {% if discount.max_discount %}
+                                <span class="text-xs text-gray-400 block">Max: Rp {{ "{:,}".format(discount.max_discount).replace(",", ".") }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-green-400 font-bold">Rp {{ "{:,}".format(discount.value).replace(",", ".") }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-4 px-4">
+                            {% if discount.min_purchase > 0 %}
+                            Rp {{ "{:,}".format(discount.min_purchase).replace(",", ".") }}
+                            {% else %}
+                            <span class="text-gray-500">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-4 px-4">
+                            {{ discount.usage_count }}{% if discount.usage_limit %}/{{ discount.usage_limit }}{% endif %}
+                        </td>
+                        <td class="py-4 px-4 text-sm">
+                            {% if discount.start_date or discount.end_date %}
+                                {% if discount.start_date %}
+                                <div>Mulai: {{ discount.start_date.strftime('%d/%m/%Y') }}</div>
+                                {% endif %}
+                                {% if discount.end_date %}
+                                <div>Sampai: {{ discount.end_date.strftime('%d/%m/%Y') }}</div>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-gray-500">Tanpa batas</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-4 px-4">
+                            <button onclick="toggleDiscount({{ discount.id }})" 
+                                    class="px-3 py-1 rounded-full text-sm {{ 'bg-green-500/20 text-green-400' if discount.is_active else 'bg-gray-500/20 text-gray-400' }}"
+                                    id="status-btn-{{ discount.id }}">
+                                {{ 'Aktif' if discount.is_active else 'Nonaktif' }}
+                            </button>
+                        </td>
+                        <td class="py-4 px-4">
+                            <div class="flex space-x-2">
+                                <button onclick="editDiscount({{ discount.id }}, '{{ discount.name }}', '{{ discount.code }}', '{{ discount.description or '' }}', '{{ discount.discount_type }}', {{ discount.value }}, {{ discount.min_purchase or 0 }}, {{ discount.max_discount or 'null' }}, {{ discount.usage_limit or 'null' }}, '{{ discount.start_date.strftime('%Y-%m-%dT%H:%M') if discount.start_date else '' }}', '{{ discount.end_date.strftime('%Y-%m-%dT%H:%M') if discount.end_date else '' }}', {{ 'true' if discount.is_active else 'false' }})" 
+                                        class="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="confirmDelete({{ discount.id }}, '{{ discount.name }}')" 
+                                        class="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-gray-500">
+                            <i class="fas fa-tag text-4xl mb-4 block"></i>
+                            <p>Belum ada promo</p>
+                            <p class="text-sm">Klik tombol "Tambah Promo" untuk membuat promo baru</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- Add Discount Modal -->
+<div id="add-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-display font-bold">Tambah Promo Baru</h2>
+            <button onclick="document.getElementById('add-modal').classList.add('hidden')" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('admin_discount_create') }}" method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-sm font-medium mb-2">Nama Promo *</label>
+                <input type="text" name="name" required placeholder="Contoh: Diskon Tahun Baru"
+                       class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Kode Promo *</label>
+                <input type="text" name="code" required placeholder="Contoh: NEWYEAR2026" 
+                       class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none uppercase"
+                       oninput="this.value = this.value.toUpperCase()">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Deskripsi</label>
+                <textarea name="description" rows="2" placeholder="Deskripsi promo (opsional)"
+                          class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Tipe Diskon</label>
+                    <select name="discount_type" id="add-discount-type"
+                            class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none"
+                            onchange="toggleMaxDiscount('add')">
+                        <option value="percentage">Persentase (%)</option>
+                        <option value="fixed">Nominal Tetap (Rp)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Nilai Diskon *</label>
+                    <input type="number" name="value" required min="1" placeholder="10"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Min. Pembelian (Rp)</label>
+                    <input type="number" name="min_purchase" min="0" value="0" placeholder="0"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+                <div id="add-max-discount-wrapper">
+                    <label class="block text-sm font-medium mb-2">Maks. Diskon (Rp)</label>
+                    <input type="number" name="max_discount" min="0" placeholder="Opsional"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Batas Penggunaan</label>
+                <input type="number" name="usage_limit" min="1" placeholder="Tanpa batas jika kosong"
+                       class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Tanggal Mulai</label>
+                    <input type="datetime-local" name="start_date"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Tanggal Berakhir</label>
+                    <input type="datetime-local" name="end_date"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" name="is_active" id="add-is-active" checked
+                       class="w-5 h-5 rounded bg-white/10 border-white/20 text-primary-500 focus:ring-primary-500">
+                <label for="add-is-active" class="ml-2">Aktifkan promo sekarang</label>
+            </div>
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" onclick="document.getElementById('add-modal').classList.add('hidden')"
+                        class="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20">Batal</button>
+                <button type="submit" class="px-6 py-3 rounded-xl btn-primary text-white">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Discount Modal -->
+<div id="edit-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-display font-bold">Edit Promo</h2>
+            <button onclick="document.getElementById('edit-modal').classList.add('hidden')" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="edit-form" method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-sm font-medium mb-2">Nama Promo *</label>
+                <input type="text" name="name" id="edit-name" required
+                       class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Kode Promo</label>
+                <input type="text" id="edit-code" disabled
+                       class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400">
+                <p class="text-xs text-gray-500 mt-1">Kode tidak dapat diubah</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Deskripsi</label>
+                <textarea name="description" id="edit-description" rows="2"
+                          class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Tipe Diskon</label>
+                    <select name="discount_type" id="edit-discount-type"
+                            class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none"
+                            onchange="toggleMaxDiscount('edit')">
+                        <option value="percentage">Persentase (%)</option>
+                        <option value="fixed">Nominal Tetap (Rp)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Nilai Diskon *</label>
+                    <input type="number" name="value" id="edit-value" required min="1"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Min. Pembelian (Rp)</label>
+                    <input type="number" name="min_purchase" id="edit-min-purchase" min="0"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+                <div id="edit-max-discount-wrapper">
+                    <label class="block text-sm font-medium mb-2">Maks. Diskon (Rp)</label>
+                    <input type="number" name="max_discount" id="edit-max-discount" min="0"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-2">Batas Penggunaan</label>
+                <input type="number" name="usage_limit" id="edit-usage-limit" min="1"
+                       class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Tanggal Mulai</label>
+                    <input type="datetime-local" name="start_date" id="edit-start-date"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Tanggal Berakhir</label>
+                    <input type="datetime-local" name="end_date" id="edit-end-date"
+                           class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 focus:border-primary-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" name="is_active" id="edit-is-active"
+                       class="w-5 h-5 rounded bg-white/10 border-white/20 text-primary-500 focus:ring-primary-500">
+                <label for="edit-is-active" class="ml-2">Promo aktif</label>
+            </div>
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" onclick="document.getElementById('edit-modal').classList.add('hidden')"
+                        class="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20">Batal</button>
+                <button type="submit" class="px-6 py-3 rounded-xl btn-primary text-white">Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+        <div class="text-center">
+            <div class="w-16 h-16 rounded-full bg-red-500/20 mx-auto mb-4 flex items-center justify-center">
+                <i class="fas fa-trash text-red-400 text-2xl"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-2">Hapus Promo?</h3>
+            <p class="text-gray-400 mb-6">Promo "<span id="delete-name"></span>" akan dihapus permanen.</p>
+            <form id="delete-form" method="POST" class="flex space-x-3 justify-center">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="button" onclick="document.getElementById('delete-modal').classList.add('hidden')"
+                        class="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20">Batal</button>
+                <button type="submit" class="px-6 py-3 rounded-xl bg-red-500 text-white hover:bg-red-600">Hapus</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleMaxDiscount(prefix) {
+    const type = document.getElementById(prefix + '-discount-type').value;
+    const wrapper = document.getElementById(prefix + '-max-discount-wrapper');
+    if (type === 'percentage') {
+        wrapper.style.display = 'block';
+    } else {
+        wrapper.style.display = 'none';
+    }
+}
+
+function toggleDiscount(id) {
+    fetch(`/admin/discounts/${id}/toggle`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const btn = document.getElementById(`status-btn-${id}`);
+                if (data.is_active) {
+                    btn.textContent = 'Aktif';
+                    btn.className = 'px-3 py-1 rounded-full text-sm bg-green-500/20 text-green-400';
+                } else {
+                    btn.textContent = 'Nonaktif';
+                    btn.className = 'px-3 py-1 rounded-full text-sm bg-gray-500/20 text-gray-400';
+                }
+            }
+        });
+}
+
+function editDiscount(id, name, code, description, discountType, value, minPurchase, maxDiscount, usageLimit, startDate, endDate, isActive) {
+    document.getElementById('edit-form').action = `/admin/discounts/${id}/edit`;
+    document.getElementById('edit-name').value = name;
+    document.getElementById('edit-code').value = code;
+    document.getElementById('edit-description').value = description || '';
+    document.getElementById('edit-discount-type').value = discountType;
+    document.getElementById('edit-value').value = value;
+    document.getElementById('edit-min-purchase').value = minPurchase;
+    document.getElementById('edit-max-discount').value = maxDiscount || '';
+    document.getElementById('edit-usage-limit').value = usageLimit || '';
+    document.getElementById('edit-start-date').value = startDate || '';
+    document.getElementById('edit-end-date').value = endDate || '';
+    document.getElementById('edit-is-active').checked = isActive;
+    
+    toggleMaxDiscount('edit');
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function confirmDelete(id, name) {
+    document.getElementById('delete-name').textContent = name;
+    document.getElementById('delete-form').action = `/admin/discounts/${id}/delete`;
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    toggleMaxDiscount('add');
+});
+</script>
+{% endblock %}

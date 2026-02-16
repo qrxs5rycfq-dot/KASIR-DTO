@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Pesanan - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    {% set active_page = 'orders' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Daftar Pesanan</h1>
+                <p class="text-gray-400">Kelola semua pesanan</p>
+            </div>
+        </header>
+        
+        <!-- Filters -->
+        <div class="glass-card rounded-2xl p-4 mb-6 flex items-center space-x-4">
+            <a href="{{ url_for('orders') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'all' %}bg-primary-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+                Semua
+            </a>
+            <a href="{{ url_for('orders', status='pending') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'pending' %}bg-yellow-500 text-black{% else %}bg-white/5 text-gray-400{% endif %}">
+                Pending
+            </a>
+            <a href="{{ url_for('orders', status='processing') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'processing' %}bg-blue-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+                Diproses
+            </a>
+            <a href="{{ url_for('orders', status='completed') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'completed' %}bg-green-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+                Selesai
+            </a>
+        </div>
+        
+        <!-- Orders Table -->
+        <div class="glass-card rounded-2xl overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-white/5">
+                    <tr>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Order ID</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Customer</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Meja</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Total</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Status</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Waktu</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for order in orders %}
+                    <tr id="order-row-{{ order.id }}" class="hover:bg-white/5 transition-colors order-row">
+                        <td class="p-4 font-medium">{{ order.order_number }}</td>
+                        <td class="p-4 text-gray-300">{{ order.customer_name or '-' }}</td>
+                        <td class="p-4 text-gray-300">{{ order.table.number if order.table else '-' }}</td>
+                        <td class="p-4 text-primary-400 font-semibold">{{ order.total|format_currency }}</td>
+                        <td class="p-4">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium
+                                {% if order.status == 'completed' %}bg-green-500/20 text-green-400
+                                {% elif order.status == 'processing' %}bg-blue-500/20 text-blue-400
+                                {% elif order.status == 'pending' %}bg-yellow-500/20 text-yellow-400
+                                {% else %}bg-red-500/20 text-red-400{% endif %}">
+                                {{ order.status|title }}
+                            </span>
+                        </td>
+                        <td class="p-4 text-gray-400 text-sm">{{ order.created_at.strftime('%d/%m %H:%M') }}</td>
+                        <td class="p-4">
+                            <div class="flex space-x-2">
+                                <button onclick="viewOrder({{ order.id }})" class="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                {% if order.status == 'pending' %}
+                                <button onclick="updateStatus({{ order.id }}, 'processing')" class="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                {% elif order.status == 'processing' %}
+                                <button onclick="updateStatus({{ order.id }}, 'completed')" class="p-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="p-8 text-center text-gray-500">Tidak ada pesanan</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- Order Detail Modal -->
+<div id="order-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+        <div class="flex items-center justify-between p-4 border-b border-white/10">
+            <h3 class="text-lg font-semibold">Detail Pesanan</h3>
+            <button onclick="closeOrderModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="order-modal-content" class="p-4 overflow-y-auto max-h-[60vh]">
+            <!-- Content will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<style>
+    .highlight-order {
+        animation: highlightPulse 2s ease-in-out;
+        background: rgba(14, 165, 233, 0.2) !important;
+    }
+    
+    @keyframes highlightPulse {
+        0%, 100% { background: rgba(14, 165, 233, 0.2); }
+        50% { background: rgba(14, 165, 233, 0.4); }
+    }
+</style>
+
+<script>
+async function updateStatus(orderId, status) {
+    try {
+        const response = await fetch(`/api/order/${orderId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        if (response.ok) location.reload();
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function viewOrder(orderId) {
+    try {
+        const response = await fetch(`/api/order/${orderId}`);
+        const order = await response.json();
+        
+        const content = document.getElementById('order-modal-content');
+        content.innerHTML = `
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p class="text-gray-400">Order Number</p>
+                        <p class="font-semibold">${order.order_number}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400">Customer</p>
+                        <p class="font-semibold">${order.customer_name || 'Guest'}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400">Meja</p>
+                        <p class="font-semibold">${order.table || 'Takeaway'}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400">Status</p>
+                        <p class="font-semibold capitalize">${order.status}</p>
+                    </div>
+                </div>
+                
+                <div class="border-t border-white/10 pt-4">
+                    <p class="text-gray-400 mb-2">Items:</p>
+                    <div class="space-y-2">
+                        ${order.items.map(item => `
+                            <div class="flex justify-between items-center bg-white/5 rounded-lg p-3">
+                                <div>
+                                    <p class="font-medium">${item.name}</p>
+                                    <p class="text-xs text-gray-400">
+                                        ${item.spice_level ? 'Pedas: ' + item.spice_level : ''}
+                                        ${item.temperature ? ' | Suhu: ' + item.temperature : ''}
+                                    </p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-primary-400">${item.quantity}x</p>
+                                    <p class="text-sm">Rp ${item.subtotal.toLocaleString('id-ID')}</p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="border-t border-white/10 pt-4 space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Subtotal</span>
+                        <span>Rp ${order.subtotal.toLocaleString('id-ID')}</span>
+                    </div>
+                    ${order.discount > 0 ? `
+                    <div class="flex justify-between text-green-400">
+                        <span>Diskon</span>
+                        <span>-Rp ${order.discount.toLocaleString('id-ID')}</span>
+                    </div>
+                    ` : ''}
+                    <div class="flex justify-between text-lg font-bold">
+                        <span>Total</span>
+                        <span class="text-primary-400">Rp ${order.total.toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+                
+                ${order.payment ? `
+                <div class="border-t border-white/10 pt-4">
+                    <p class="text-gray-400 mb-2">Pembayaran:</p>
+                    <div class="bg-white/5 rounded-lg p-3">
+                        <div class="flex justify-between">
+                            <span>Metode</span>
+                            <span class="capitalize">${order.payment.payment_method}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Status</span>
+                            <span class="capitalize ${order.payment.status === 'paid' ? 'text-green-400' : 'text-yellow-400'}">${order.payment.status}</span>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+        
+        document.getElementById('order-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('Error loading order: ' + error.message);
+    }
+}
+
+function closeOrderModal() {
+    document.getElementById('order-modal').classList.add('hidden');
+}
+
+// Highlight order from URL parameter
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightId = urlParams.get('highlight');
+    
+    if (highlightId) {
+        const row = document.getElementById('order-row-' + highlightId);
+        if (row) {
+            // Scroll to the row
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Add highlight effect
+            row.classList.add('highlight-order');
+            
+            // Also open the order detail
+            setTimeout(() => viewOrder(highlightId), 500);
+            
+            // Remove highlight parameter from URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+});
+
+// Close modal on click outside
+document.getElementById('order-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeOrderModal();
+});
+</script>
+{% endblock %}

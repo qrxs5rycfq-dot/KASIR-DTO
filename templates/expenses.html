@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Pengeluaran - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    {% set active_page = 'expenses' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <!-- Main Content -->
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Pengeluaran</h1>
+                <p class="text-gray-400">Catat dan kelola pengeluaran restoran</p>
+            </div>
+            <button onclick="document.getElementById('add-expense-modal').classList.remove('hidden'); document.getElementById('add-expense-modal').classList.add('flex')" 
+                    class="btn-primary px-4 py-2 rounded-xl text-white font-medium flex items-center space-x-2 w-fit">
+                <i class="fas fa-plus"></i>
+                <span>Tambah Pengeluaran</span>
+            </button>
+        </header>
+        
+        <!-- Filter -->
+        <div class="glass-card rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-start md:items-center gap-4">
+            <form method="GET" action="{{ url_for('expenses') }}" class="flex flex-col md:flex-row items-start md:items-center gap-3 w-full">
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm text-gray-400">Bulan:</label>
+                    <input type="month" name="month" value="{{ current_month }}"
+                           class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm text-gray-400">Kategori:</label>
+                    <select name="category" class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                        <option value="all" {% if category_filter == 'all' %}selected{% endif %}>Semua</option>
+                        {% for key, label in expense_categories.items() %}
+                        <option value="{{ key }}" {% if category_filter == key %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 rounded-lg bg-primary-500/20 text-primary-400 text-sm hover:bg-primary-500/30">
+                    <i class="fas fa-filter mr-1"></i>Filter
+                </button>
+            </form>
+        </div>
+        
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="glass-card rounded-2xl p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-400">Total Pengeluaran</p>
+                        <h3 class="text-xl font-bold text-red-400 mt-1">{{ total_expenses|format_currency }}</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                        <i class="fas fa-arrow-down text-red-400"></i>
+                    </div>
+                </div>
+            </div>
+            {% for cat_label, cat_total in category_totals.items() %}
+            {% if loop.index <= 3 %}
+            <div class="glass-card rounded-2xl p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-400">{{ cat_label }}</p>
+                        <h3 class="text-lg font-bold mt-1">{{ cat_total|format_currency }}</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                        <i class="fas fa-tag text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        
+        <!-- Expense Table -->
+        <div class="glass-card rounded-2xl overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-white/5">
+                    <tr>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Tanggal</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Kategori</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Deskripsi</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Jumlah</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Oleh</th>
+                        <th class="text-left p-4 text-sm font-medium text-gray-400">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    {% for expense in expenses %}
+                    <tr class="hover:bg-white/5 transition-colors">
+                        <td class="p-4 text-sm">{{ expense.date.strftime('%d/%m/%Y') }}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium bg-white/10 text-gray-300">
+                                {{ expense.CATEGORIES.get(expense.category, expense.category) }}
+                            </span>
+                        </td>
+                        <td class="p-4 text-sm">
+                            {{ expense.description }}
+                            {% if expense.notes %}
+                            <p class="text-xs text-gray-500 mt-0.5">{{ expense.notes }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-sm font-semibold text-red-400">{{ expense.amount|format_currency }}</td>
+                        <td class="p-4 text-sm text-gray-400">{{ expense.user.full_name or expense.user.username if expense.user else '-' }}</td>
+                        <td class="p-4">
+                            {% if current_user.has_role('admin') or current_user.has_role('manager') %}
+                            <form action="{{ url_for('expense_delete', expense_id=expense.id) }}" method="POST" 
+                                  onsubmit="return confirm('Hapus pengeluaran ini?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-gray-500">
+                            <i class="fas fa-wallet text-3xl mb-3 block"></i>
+                            Tidak ada pengeluaran pada periode ini
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- Add Expense Modal -->
+<div id="add-expense-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
+        <h3 class="text-lg font-semibold mb-4">Tambah Pengeluaran</h3>
+        <form action="{{ url_for('expense_add') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Tanggal *</label>
+                    <input type="date" name="date" required value="{{ now.strftime('%Y-%m-%d') if now else '' }}"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Kategori *</label>
+                    <select name="category" required
+                            class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                        {% for key, label in expense_categories.items() %}
+                        <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Deskripsi *</label>
+                    <input type="text" name="description" required placeholder="Contoh: Beli sayur di pasar"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Jumlah (Rp) *</label>
+                    <input type="number" name="amount" required min="1" placeholder="50000"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Catatan</label>
+                    <textarea name="notes" rows="2" placeholder="Catatan tambahan..."
+                              class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"></textarea>
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button type="button" onclick="document.getElementById('add-expense-modal').classList.add('hidden'); document.getElementById('add-expense-modal').classList.remove('flex')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 font-medium hover:bg-white/20">
+                    Batal
+                </button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl btn-primary text-white font-medium">
+                    Simpan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

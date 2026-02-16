@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}Kelola Cabang - Dapoer Teras Obor{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen">
+    <!-- Sidebar -->
+    {% set active_page = 'admin_branches' %}
+    {% include 'partials/_sidebar.html' %}
+    
+    <!-- Main Content -->
+    <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
+        <header class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Kelola Cabang</h1>
+                <p class="text-gray-400">Tambah dan kelola cabang restoran</p>
+            </div>
+            <button onclick="document.getElementById('add-branch-modal').classList.remove('hidden'); document.getElementById('add-branch-modal').classList.add('flex')" 
+                    class="btn-primary px-4 py-2 rounded-xl text-white font-medium flex items-center space-x-2">
+                <i class="fas fa-plus"></i>
+                <span>Tambah Cabang</span>
+            </button>
+        </header>
+        
+        <!-- Branch Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for branch in branches %}
+            <div class="glass-card rounded-2xl p-6 animate-fade-in">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-xl bg-primary-500/20 flex items-center justify-center">
+                            <i class="fas fa-store text-primary-400 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-lg">{{ branch.name }}</h3>
+                            <span class="text-xs text-gray-400 bg-white/5 px-2 py-0.5 rounded">{{ branch.code }}</span>
+                        </div>
+                    </div>
+                    <span class="px-2 py-1 rounded-full text-xs font-medium {% if branch.is_active %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+                        {{ 'Aktif' if branch.is_active else 'Nonaktif' }}
+                    </span>
+                </div>
+                
+                {% if branch.address %}
+                <div class="flex items-start space-x-2 mb-2 text-sm text-gray-400">
+                    <i class="fas fa-map-marker-alt mt-0.5 w-4"></i>
+                    <span>{{ branch.address }}</span>
+                </div>
+                {% endif %}
+                
+                {% if branch.phone %}
+                <div class="flex items-center space-x-2 mb-2 text-sm text-gray-400">
+                    <i class="fas fa-phone w-4"></i>
+                    <span>{{ branch.phone }}</span>
+                </div>
+                {% endif %}
+                
+                {% if branch.manager_name %}
+                <div class="flex items-center space-x-2 mb-2 text-sm text-gray-400">
+                    <i class="fas fa-user-tie w-4"></i>
+                    <span>{{ branch.manager_name }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="flex items-center space-x-2 mb-4 text-sm text-gray-400">
+                    <i class="fas fa-clock w-4"></i>
+                    <span>{{ branch.opening_time }} - {{ branch.closing_time }}</span>
+                </div>
+                
+                {% if branch.city %}
+                <div class="flex items-center space-x-2 mb-2 text-sm text-gray-400">
+                    <i class="fas fa-city w-4"></i>
+                    <span>{{ branch.city.name }}</span>
+                </div>
+                {% endif %}
+                
+                {% if branch.brand %}
+                <div class="flex items-center space-x-2 mb-2 text-sm text-gray-400">
+                    <i class="fas fa-tag w-4"></i>
+                    <span>{{ branch.brand.name }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="flex items-center space-x-2 pt-4 border-t border-white/10">
+                    <button onclick="editBranch(this)" 
+                            data-id="{{ branch.id }}"
+                            data-name="{{ branch.name|e }}"
+                            data-code="{{ branch.code|e }}"
+                            data-address="{{ (branch.address or '')|e }}"
+                            data-phone="{{ (branch.phone or '')|e }}"
+                            data-manager="{{ (branch.manager_name or '')|e }}"
+                            data-opening="{{ branch.opening_time }}"
+                            data-closing="{{ branch.closing_time }}"
+                            data-city_id="{{ branch.city_id or '' }}"
+                            data-brand_id="{{ branch.brand_id or '' }}"
+                            class="flex-1 py-2 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white text-sm">
+                        <i class="fas fa-edit mr-1"></i>Edit
+                    </button>
+                    {% if is_owner and branch.code != 'PUSAT' %}
+                    <button onclick="toggleBranch({{ branch.id }})" 
+                            class="py-2 px-3 rounded-lg {% if branch.is_active %}bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20{% else %}bg-green-500/10 text-green-400 hover:bg-green-500/20{% endif %} text-sm">
+                        <i class="fas {% if branch.is_active %}fa-pause{% else %}fa-play{% endif %}"></i>
+                    </button>
+                    <form action="{{ url_for('admin_branch_delete', branch_id=branch.id) }}" method="POST" 
+                          onsubmit="return confirm('Hapus cabang {{ branch.name }}?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="py-2 px-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="col-span-full glass-card rounded-2xl p-12 text-center">
+                <i class="fas fa-store text-4xl text-gray-600 mb-4"></i>
+                <h3 class="text-lg font-semibold text-gray-400 mb-2">Belum ada cabang</h3>
+                <p class="text-gray-500 text-sm">Tambahkan cabang pertama untuk memulai</p>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+</div>
+
+<!-- Add Branch Modal -->
+<div id="add-branch-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
+        <h3 class="text-lg font-semibold mb-4">Tambah Cabang Baru</h3>
+        <form action="{{ url_for('admin_branch_create') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Nama Cabang *</label>
+                    <input type="text" name="name" required placeholder="Dapoer Teras Obor - Cabang Baru"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Kode Cabang *</label>
+                    <input type="text" name="code" required placeholder="CBG-01" maxlength="20"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 uppercase"
+                           oninput="this.value = this.value.toUpperCase()">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Alamat</label>
+                    <textarea name="address" rows="2" placeholder="Jl. Contoh No. 123, Kota"
+                              class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Telepon</label>
+                        <input type="tel" name="phone" placeholder="021-XXXXXXX"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Nama Manager</label>
+                        <input type="text" name="manager_name" placeholder="Nama Manager"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Jam Buka</label>
+                        <input type="time" name="opening_time" value="08:00"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Jam Tutup</label>
+                        <input type="time" name="closing_time" value="22:00"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Kota</label>
+                        <select name="city_id"
+                                class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                            <option value="">-- Pilih Kota --</option>
+                            {% for city in cities %}
+                            <option value="{{ city.id }}">{{ city.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Brand</label>
+                        <select name="brand_id"
+                                class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                            <option value="">-- Pilih Brand --</option>
+                            {% for brand in brands %}
+                            <option value="{{ brand.id }}">{{ brand.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button type="button" onclick="document.getElementById('add-branch-modal').classList.add('hidden'); document.getElementById('add-branch-modal').classList.remove('flex')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 font-medium hover:bg-white/20">
+                    Batal
+                </button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl btn-primary text-white font-medium">
+                    Tambah Cabang
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Branch Modal -->
+<div id="edit-branch-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
+        <h3 class="text-lg font-semibold mb-4">Edit Cabang</h3>
+        <form id="edit-branch-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Nama Cabang *</label>
+                    <input type="text" name="name" id="edit-name" required
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Kode Cabang *</label>
+                    <input type="text" name="code" id="edit-code" required maxlength="20"
+                           class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 uppercase"
+                           oninput="this.value = this.value.toUpperCase()">
+                </div>
+                <div>
+                    <label class="text-sm text-gray-400 mb-1 block">Alamat</label>
+                    <textarea name="address" id="edit-address" rows="2"
+                              class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Telepon</label>
+                        <input type="tel" name="phone" id="edit-phone"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Nama Manager</label>
+                        <input type="text" name="manager_name" id="edit-manager"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Jam Buka</label>
+                        <input type="time" name="opening_time" id="edit-opening"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Jam Tutup</label>
+                        <input type="time" name="closing_time" id="edit-closing"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Kota</label>
+                        <select name="city_id" id="edit-city_id"
+                                class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                            <option value="">-- Pilih Kota --</option>
+                            {% for city in cities %}
+                            <option value="{{ city.id }}">{{ city.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-400 mb-1 block">Brand</label>
+                        <select name="brand_id" id="edit-brand_id"
+                                class="w-full bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                            <option value="">-- Pilih Brand --</option>
+                            {% for brand in brands %}
+                            <option value="{{ brand.id }}">{{ brand.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button type="button" onclick="document.getElementById('edit-branch-modal').classList.add('hidden'); document.getElementById('edit-branch-modal').classList.remove('flex')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300 font-medium hover:bg-white/20">
+                    Batal
+                </button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl btn-primary text-white font-medium">
+                    Simpan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editBranch(el) {
+    const id = el.dataset.id;
+    document.getElementById('edit-branch-form').action = `/admin/branches/${id}/edit`;
+    document.getElementById('edit-name').value = el.dataset.name;
+    document.getElementById('edit-code').value = el.dataset.code;
+    document.getElementById('edit-address').value = el.dataset.address;
+    document.getElementById('edit-phone').value = el.dataset.phone;
+    document.getElementById('edit-manager').value = el.dataset.manager;
+    document.getElementById('edit-opening').value = el.dataset.opening;
+    document.getElementById('edit-closing').value = el.dataset.closing;
+    document.getElementById('edit-city_id').value = el.dataset.city_id || '';
+    document.getElementById('edit-brand_id').value = el.dataset.brand_id || '';
+    document.getElementById('edit-branch-modal').classList.remove('hidden');
+    document.getElementById('edit-branch-modal').classList.add('flex');
+}
+
+async function toggleBranch(id) {
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const response = await fetch(`/admin/branches/${id}/toggle`, { 
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Gagal mengubah status cabang');
+        }
+    } catch (error) {
+        alert('Terjadi kesalahan');
+    }
+}
+</script>
+{% endblock %}
