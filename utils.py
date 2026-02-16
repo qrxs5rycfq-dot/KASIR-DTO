@@ -4,7 +4,10 @@ from flask import redirect, url_for, flash, current_app
 from flask_login import current_user
 from werkzeug.utils import secure_filename
 from models import db, User, Branch, BranchMenuStock, City, Brand
+import hashlib
+import hmac
 import os
+import time
 import uuid
 
 
@@ -179,3 +182,35 @@ def create_notification(type, title, message, user_id=None, data=None):
     db.session.add(notification)
     db.session.commit()
     return notification
+
+
+def validate_token(token):
+    """Validate API token and return user"""
+    if not token:
+        return None
+
+    try:
+        parts = token.split(':')
+        if len(parts) != 3:
+            return None
+
+        user_id, timestamp, signature = parts
+
+        # Cek timestamp (24 jam)
+        if int(timestamp) < time.time() - 86400:
+            return None
+
+        # Verifikasi signature
+        secret = current_app.config.get('SECRET_KEY')
+        expected = hmac.new(
+            secret.encode(),
+            f"{user_id}:{timestamp}".encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(signature, expected):
+            return None
+
+        return db.session.get(User, int(user_id))
+    except Exception:
+        return None
