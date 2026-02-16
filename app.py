@@ -126,6 +126,23 @@ app.register_blueprint(api_payments)
 app.register_blueprint(api_print)
 app.register_blueprint(webhooks_bp)
 
+# Register backward-compatible endpoint aliases for templates
+# Templates use url_for('login') instead of url_for('auth.login')
+# We create short-name aliases by mapping short endpoint names to blueprint view functions
+_aliases_registered = set()
+for rule in list(app.url_map.iter_rules()):
+    ep = rule.endpoint
+    if '.' in ep and ep != 'static':
+        short = ep.split('.', 1)[1]
+        if short not in _aliases_registered and short not in app.view_functions:
+            try:
+                app.add_url_rule(rule.rule, endpoint=short, 
+                                view_func=app.view_functions[ep],
+                                methods=rule.methods - {'OPTIONS', 'HEAD'})
+                _aliases_registered.add(short)
+            except (AssertionError, ValueError):
+                pass
+
 # Register WebSocket event handlers
 from socket_handlers import register_socket_handlers
 register_socket_handlers(socketio)
