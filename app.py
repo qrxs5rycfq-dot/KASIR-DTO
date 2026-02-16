@@ -1673,11 +1673,11 @@ def create_print_job(order):
         
         # EMIT UNTUK SEMUA COPY (3 lembar)
         for pid in created_ids:
-            p = PendingPrint.query.get(pid)
+            p = db.session.get(PendingPrint, pid)
             if p:
                 emit_print_job(p, order.branch_id)
         
-        first_print = PendingPrint.query.get(created_ids[0])
+        first_print = db.session.get(PendingPrint, created_ids[0])
         return first_print
         
     except Exception as e:
