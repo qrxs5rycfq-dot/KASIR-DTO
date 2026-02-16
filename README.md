@@ -200,7 +200,7 @@ Aplikasi ini mendukung push notification ke perangkat Android menggunakan **Fire
 
 1. Di Firebase Console, buka **Project Settings** (ikon ⚙️ di kiri atas)
 2. Pilih tab **Cloud Messaging**
-3. Jika belum aktif, klik **Enable** pada Cloud Messaging API (V1) — atau gunakan **Legacy Server Key** yang sudah tersedia
+3. Aktifkan **Cloud Messaging API (V1)** jika belum aktif
 4. Salin **Server key** (string panjang dimulai dengan `AAAA...`)
 
 #### 3. Tambahkan ke `.env`
@@ -233,8 +233,10 @@ Token disimpan di kolom `fcm_token` pada tabel `users` dan digunakan server untu
 
 1. **Pesanan baru dibuat** → Server membuat notifikasi di database
 2. Server mencari user dengan role yang sesuai (`target_roles`) dan memiliki `fcm_token`
-3. Server mengirim push notification ke semua perangkat yang cocok via FCM Legacy HTTP API
+3. Server mengirim push notification ke semua perangkat yang cocok via FCM HTTP API
 4. Pengiriman bersifat **best-effort** — jika gagal, notifikasi tetap tersimpan di database dan bisa dilihat di web
+
+> **Catatan**: Jika menggunakan FCM HTTP v1 API, pastikan menggunakan service account key (JSON) sebagai pengganti server key. Konfigurasi ini dapat disesuaikan di `utils.py`.
 
 ## 📁 Struktur File
 
