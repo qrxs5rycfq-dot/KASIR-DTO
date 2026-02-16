@@ -244,8 +244,9 @@ def _send_fcm_push(title, message, data=None, user_id=None, target_roles=None):
         return
 
     # Build notification data
+    default_target_url = '/orders'
     notification_data = dict(data) if data else {}
-    notification_data['url'] = notification_data.get('url', '/orders')
+    notification_data['url'] = notification_data.get('url', default_target_url)
 
     # Send to each token using Firebase Admin SDK (v1 API)
     for token in tokens:

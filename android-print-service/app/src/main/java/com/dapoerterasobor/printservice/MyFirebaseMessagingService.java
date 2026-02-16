@@ -20,6 +20,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String TAG = "FCMService";
     private static final String CHANNEL_ID = "kasir_orders";
     private static final String CHANNEL_NAME = "Pesanan";
+    private static final String DEFAULT_TARGET_URL = "/orders";
+    private static final java.util.concurrent.atomic.AtomicInteger notificationIdCounter =
+            new java.util.concurrent.atomic.AtomicInteger(0);
 
     @Override
     public void onNewToken(String token) {
@@ -36,7 +39,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
         String title = "Pesanan Baru";
         String body = "";
-        String targetUrl = "/orders";
+        String targetUrl = DEFAULT_TARGET_URL;
 
         if (remoteMessage.getNotification() != null) {
             title = remoteMessage.getNotification().getTitle() != null
@@ -94,7 +97,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                         .setContentIntent(pendingIntent)
                         .setStyle(new NotificationCompat.BigTextStyle().bigText(body));
 
-        int notificationId = (int) System.currentTimeMillis();
+        int notificationId = notificationIdCounter.incrementAndGet();
         notificationManager.notify(notificationId, notificationBuilder.build());
     }
 }
