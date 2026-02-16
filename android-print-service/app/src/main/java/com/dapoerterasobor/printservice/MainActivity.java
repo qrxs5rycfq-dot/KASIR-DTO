@@ -18,6 +18,7 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -26,9 +27,11 @@ import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
+import android.webkit.SslErrorHandler;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -85,6 +88,8 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SwipeRefreshLayout swipeRefreshLayout;
     private View settingsPanel;
+    private View settingsBackdrop;
+    private View floatingStatusBar;
     private EditText editServerUrl;
     private EditText editUsername;
     private EditText editPassword;
@@ -184,6 +189,8 @@ public class MainActivity extends AppCompatActivity {
         webView = findViewById(R.id.webView);
         swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
         settingsPanel = findViewById(R.id.settingsPanel);
+        settingsBackdrop = findViewById(R.id.settingsBackdrop);
+        floatingStatusBar = findViewById(R.id.floatingStatusBar);
         editServerUrl = findViewById(R.id.editServerUrl);
         editUsername = findViewById(R.id.editUsername);
         editPassword = findViewById(R.id.editPassword);
@@ -214,6 +221,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupButtons() {
         findViewById(R.id.btnSettings).setOnClickListener(v -> toggleSettings());
         findViewById(R.id.btnSave).setOnClickListener(v -> saveSettings());
+        findViewById(R.id.btnCloseSettings).setOnClickListener(v -> closeSettings());
+        settingsBackdrop.setOnClickListener(v -> closeSettings());
         btnRefreshPrinters.setOnClickListener(v -> loadPairedPrinters());
         btnToggleService.setOnClickListener(v -> togglePrintService());
 
@@ -306,23 +315,35 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
         webSettings.setLoadsImagesAutomatically(true);
+        webSettings.setDefaultTextEncodingName("UTF-8");
+
+        // Security: allow mixed content only in compatibility mode
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+        // Performance optimizations
+        webSettings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+        webSettings.setOffscreenPreRaster(true);
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+
+        // Viewport settings for proper rendering
+        webSettings.setUseWideViewPort(true);
+        webSettings.setLoadWithOverviewMode(true);
         webSettings.setSupportZoom(true);
         webSettings.setBuiltInZoomControls(true);
         webSettings.setDisplayZoomControls(false);
-        webSettings.setUseWideViewPort(true);
-        webSettings.setLoadWithOverviewMode(true);
-        webSettings.setDefaultTextEncodingName("UTF-8");
+
+        // GPU hardware acceleration
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         // User agent
         String defaultUA = webSettings.getUserAgentString();
         webSettings.setUserAgentString(defaultUA + " DapoerTerasOborPOS/2.0 Android");
 
-        // Enable cookies
+        // Enable cookies with persistence
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
@@ -393,6 +414,22 @@ public class MainActivity extends AppCompatActivity {
                         Log.e(TAG, "HTTP error: " + statusCode + " for " + request.getUrl());
                         handlePageLoadError("Server error: " + statusCode);
                     }
+                }
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                // Untuk server lokal/development, izinkan SSL self-signed
+                String serverUrl = getServerUrl();
+                String errorUrl = error.getUrl();
+                if (serverUrl.startsWith("https://") && errorUrl.startsWith(serverUrl)) {
+                    // Self-signed cert pada server yang dikonfigurasi — izinkan
+                    Log.w(TAG, "SSL error on configured server, proceeding: " + error.getPrimaryError());
+                    handler.proceed();
+                } else {
+                    // URL tidak dikenal — tolak
+                    Log.e(TAG, "SSL error on unknown URL, cancelling: " + errorUrl);
+                    handler.cancel();
                 }
             }
         });
@@ -792,10 +829,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void openSettings() {
-            runOnUiThread(() -> {
-                settingsVisible = true;
-                settingsPanel.setVisibility(View.VISIBLE);
-            });
+            runOnUiThread(() -> MainActivity.this.openSettings());
         }
 
         @JavascriptInterface
@@ -825,13 +859,47 @@ public class MainActivity extends AppCompatActivity {
 
     // Settings Management
     private void toggleSettings() {
-        settingsVisible = !settingsVisible;
-        settingsPanel.setVisibility(settingsVisible ? View.VISIBLE : View.GONE);
-
         if (settingsVisible) {
-            loadSettings();
-            loadPairedPrinters();
+            closeSettings();
+        } else {
+            openSettings();
         }
+    }
+
+    private void openSettings() {
+        settingsVisible = true;
+        loadSettings();
+        loadPairedPrinters();
+
+        // Show backdrop with fade-in
+        settingsBackdrop.setVisibility(View.VISIBLE);
+        settingsBackdrop.setAlpha(0f);
+        settingsBackdrop.animate().alpha(1f).setDuration(200).start();
+
+        // Slide panel in from right
+        settingsPanel.setVisibility(View.VISIBLE);
+        settingsPanel.animate()
+                .translationX(0)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void closeSettings() {
+        settingsVisible = false;
+
+        // Fade out backdrop
+        settingsBackdrop.animate().alpha(0f).setDuration(200).withEndAction(() ->
+                settingsBackdrop.setVisibility(View.GONE)
+        ).start();
+
+        // Slide panel out to right
+        settingsPanel.animate()
+                .translationX(400)
+                .setDuration(250)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() -> settingsPanel.setVisibility(View.GONE))
+                .start();
     }
 
     private void loadSettings() {
@@ -922,8 +990,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         showToast("Pengaturan disimpan");
-        settingsPanel.setVisibility(View.GONE);
-        settingsVisible = false;
+        closeSettings();
 
         // Restart service if running
         if (isServiceRunning.get()) {
@@ -1124,22 +1191,18 @@ public class MainActivity extends AppCompatActivity {
     private void updateServiceStatus(boolean isRunning, int printed, int failed, String status) {
         runOnUiThread(() -> {
             if (isRunning) {
-                txtServiceStatus.setText("🟢 PRINT SERVICE AKTIF");
-                txtServiceStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
-                btnToggleService.setText("⏹ STOP");
+                txtServiceStatus.setText("🟢");
+                txtServiceStatus.setVisibility(View.VISIBLE);
+                btnToggleService.setText("⏹");
                 btnToggleService.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#dc2626")));
-
-                if (txtPrintStats != null) {
-                    txtPrintStats.setVisibility(View.GONE);
-                }
             } else {
-                txtServiceStatus.setText("🔴 PRINT SERVICE MATI");
-                txtServiceStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_light));
-                btnToggleService.setText("▶ START");
+                txtServiceStatus.setText("🔴");
+                txtServiceStatus.setVisibility(View.GONE);
+                btnToggleService.setText("▶");
                 btnToggleService.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#059669")));
-                if (txtPrintStats != null) {
-                    txtPrintStats.setVisibility(View.GONE);
-                }
+            }
+            if (txtPrintStats != null) {
+                txtPrintStats.setVisibility(View.GONE);
             }
         });
     }
@@ -1285,8 +1348,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         if (settingsVisible) {
-            settingsPanel.setVisibility(View.GONE);
-            settingsVisible = false;
+            closeSettings();
         } else if (webView.canGoBack()) {
             webView.goBack();
         } else {
