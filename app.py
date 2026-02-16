@@ -1671,10 +1671,13 @@ def create_print_job(order):
         db.session.commit()
         print(f"✅ Successfully created {len(created_ids)} print jobs: {created_ids}")
         
-        # EMIT UNTUK COPY PERTAMA
-        first_print = PendingPrint.query.get(created_ids[0])
-        emit_print_job(first_print, order.branch_id)
+        # EMIT UNTUK SEMUA COPY (3 lembar)
+        for pid in created_ids:
+            p = PendingPrint.query.get(pid)
+            if p:
+                emit_print_job(p, order.branch_id)
         
+        first_print = PendingPrint.query.get(created_ids[0])
         return first_print
         
     except Exception as e:
@@ -3288,9 +3291,11 @@ def fail_pending_print(print_id):
     pending.retry_count += 1
     pending.error_message = data.get('error_message', 'Unknown error')
     
-    # Mark as permanently failed after 5 retries
+    # Mark as permanently failed after 5 retries, otherwise reset to pending
     if pending.retry_count >= 5:
         pending.status = 'failed'
+    else:
+        pending.status = 'pending'
     
     db.session.commit()
     

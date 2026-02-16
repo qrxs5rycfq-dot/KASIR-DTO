@@ -24,6 +24,7 @@ public class SplashActivity extends AppCompatActivity {
     private static final String TAG = "SplashActivity";
     private static final int SPLASH_DURATION_MS = 2000;
     private static final String PREFS_NAME = "PrintServicePrefs";
+    private static final String DEFAULT_SERVER_URL = "http://10.111.108.37:8000";
 
     private ProgressBar progressBar;
     private TextView txtStatus;
@@ -65,7 +66,7 @@ public class SplashActivity extends AppCompatActivity {
 
     private void checkConfiguration() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String serverUrl = prefs.getString("server_url", "");
+        String serverUrl = prefs.getString("server_url", DEFAULT_SERVER_URL);
 
         if (serverUrl.isEmpty()) {
             updateStatus("🔧 Menunggu konfigurasi...");

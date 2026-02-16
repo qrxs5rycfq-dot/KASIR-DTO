@@ -68,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final String PREFS_NAME = "PrintServicePrefs";
+    private static final String DEFAULT_SERVER_URL = "http://10.111.108.37:8000";
 
     // Timeouts
     private static final int SERVICE_STATUS_UPDATE_INTERVAL = 2000; // 2 detik
@@ -690,7 +691,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadSettings() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        editServerUrl.setText(prefs.getString("server_url", "http://10.111.108.37:8000"));
+        editServerUrl.setText(prefs.getString("server_url", DEFAULT_SERVER_URL));
         editUsername.setText(prefs.getString("username", "admin"));
         editPassword.setText(prefs.getString("password", "Asecc123@"));
         editLanAddress.setText(prefs.getString("lan_printer_address", "10.111.108.37:9100"));
@@ -1067,7 +1068,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Helpers
     private String getServerUrl() {
-        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("server_url", "");
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("server_url", DEFAULT_SERVER_URL);
     }
 
     private void showToast(String message) {

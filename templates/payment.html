@@ -362,9 +362,9 @@
                     updatePaymentStatus('paid', result);
                     showStatus('success');
                     
-                    // Save receipt to server queue for Printer Station
-                    console.log('Saving receipt to server queue for online payment...');
-                    saveReceiptToServerQueue(orderData, 3);
+                    // Print jobs sudah dibuat oleh server via create_print_job()
+                    // Tidak perlu memanggil saveReceiptToServerQueue() lagi agar tidak duplikat
+                    console.log('Payment completed, receipts already queued by server');
                     
                     // Redirect after a short delay
                     setTimeout(() => {

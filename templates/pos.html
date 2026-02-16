@@ -930,8 +930,8 @@ function showReceipt(order) {
     document.getElementById('receipt-modal').classList.remove('hidden');
     document.getElementById('receipt-modal').classList.add('flex');
     
-    // AUTO PRINT 3x via Bluetooth after successful payment
-    autoPrintReceipt3x(order);
+    // Print jobs sudah dibuat oleh server via create_print_job()
+    // Tidak perlu memanggil autoPrintReceipt3x() lagi agar tidak duplikat
     
     // Note: Cart already cleared in processCheckout() after successful order
 }

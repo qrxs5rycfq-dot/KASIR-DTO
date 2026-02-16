@@ -477,26 +477,20 @@ public class PrintService extends Service {
     }
 
     private void onPrinterConnected(boolean wasConnected) {
-        // Reset flag pengecekan jika ini adalah koneksi baru
-        if (!wasConnected) {
-            hasCheckedPendingAfterConnect = false;
-            Log.i(TAG, "New printer connection detected, resetting check flag");
-        }
+        // Selalu reset flag agar pending print selalu dicek saat printer terhubung
+        hasCheckedPendingAfterConnect = false;
+        Log.i(TAG, "Printer connected (wasConnected=" + wasConnected + "), resetting check flag");
 
-        // Cek pending print jika:
-        // 1. Ini adalah koneksi baru (dari status disconnected)
-        // 2. Belum pernah cek pending print setelah koneksi ini
-        if (!wasConnected && !hasCheckedPendingAfterConnect) {
-            Log.i(TAG, "🔍 New printer connection detected, scheduling pending print check with retry...");
+        // Selalu cek pending print saat printer terhubung
+        Log.i(TAG, "🔍 Printer connected, scheduling pending print check with retry...");
 
-            // Delay agar printer siap
-            mainHandler.postDelayed(() -> {
-                if (isPrinterConnected && !hasCheckedPendingAfterConnect) {
-                    Log.i(TAG, "🔍 Checking for pending prints after printer connection");
-                    fetchPendingPrintsWithRetry(MAX_RETRY_COUNT);
-                }
-            }, PRINT_CHECK_DELAY);
-        }
+        // Delay agar printer siap
+        mainHandler.postDelayed(() -> {
+            if (isPrinterConnected && !hasCheckedPendingAfterConnect) {
+                Log.i(TAG, "🔍 Checking for pending prints after printer connection");
+                fetchPendingPrintsWithRetry(MAX_RETRY_COUNT);
+            }
+        }, PRINT_CHECK_DELAY);
 
         // Proses job yang tertunda karena printer disconnect
         processQueuedPrintJobs();
