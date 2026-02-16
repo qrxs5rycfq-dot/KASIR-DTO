@@ -355,7 +355,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="📌 Masukkan IP printer di jaringan lokal. Printer terhubung langsung dari tablet ke printer via LAN, bukan melalui server."
+                    android:text="📌 Masukkan IP printer di jaringan lokal. Koneksi printer langsung dari tablet ke printer via LAN (tidak melalui server)."
                     android:textColor="#475569"
                     android:textSize="10sp"
                     android:layout_marginTop="6dp" />

@@ -709,6 +709,10 @@ def api_tripay_callback():
                 hashlib.sha256
             ).hexdigest()
             if not hmac.compare_digest(callback_signature, expected_signature):
+                import logging
+                logging.getLogger(__name__).warning(
+                    f'Tripay callback signature mismatch from {request.remote_addr}'
+                )
                 return jsonify({'error': 'Invalid signature'}), 403
 
         data = request.json

@@ -185,10 +185,10 @@ def create_notification(type, title, message, user_id=None, data=None, target_ro
     # Send FCM push notification to relevant users
     try:
         _send_fcm_push(title, message, data, user_id=user_id, target_roles=target_roles)
-    except Exception as e:
+    except Exception:
         # FCM is best-effort, don't break notification creation on failure
         import logging
-        logging.getLogger(__name__).warning(f'FCM push failed: {e}')
+        logging.getLogger(__name__).warning('FCM push failed', exc_info=True)
 
     return notification
 
