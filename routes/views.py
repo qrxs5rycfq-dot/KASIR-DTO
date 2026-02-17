@@ -364,7 +364,7 @@ def expense_delete(expense_id):
 @login_required
 @role_required('admin', 'manager', 'koki', 'kasir')
 def kitchen():
-    """Kitchen display page for cooks"""
+    """Kitchen display page for authorized staff"""
     return render_template('kitchen.html')
 
 
