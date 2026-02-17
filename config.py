@@ -56,8 +56,8 @@ class Config:
     # QR Code config
     QR_CODE_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'qrcodes')
     
-    # Application URL (for QR codes)
-    APP_URL = os.environ.get('APP_URL', 'http://localhost:8000')
+    # Application URL (for QR codes, kosongkan untuk auto-detect dari request)
+    APP_URL = os.environ.get('APP_URL', '')
 
 class DevelopmentConfig(Config):
     DEBUG = True
