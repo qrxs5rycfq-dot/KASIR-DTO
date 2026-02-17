@@ -26,7 +26,8 @@ admin_bp = Blueprint('admin', __name__, url_prefix='')
 
 
 def generate_table_qr(table_number):
-    app_url = current_app.config.get('APP_URL', 'http://localhost:8000')
+    configured_url = os.environ.get('APP_URL', '')
+    app_url = configured_url.rstrip('/') if configured_url else request.host_url.rstrip('/')
     order_url = f"{app_url}/order/online/{table_number}"
 
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
