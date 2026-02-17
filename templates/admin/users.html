@@ -75,12 +75,24 @@
                             </span>
                         </td>
                         <td class="p-4">
-                            <form action="{{ url_for('admin.admin_toggle_user', user_id=user.id) }}" method="POST" class="inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                <button type="submit" class="p-2 rounded-lg {% if user.is_active %}bg-red-500/20 hover:bg-red-500/30 text-red-400{% else %}bg-green-500/20 hover:bg-green-500/30 text-green-400{% endif %}">
-                                    <i class="fas {% if user.is_active %}fa-ban{% else %}fa-check{% endif %}"></i>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="openEditUser({{ user.id }}, '{{ user.full_name|e }}', '{{ user.username|e }}', '{{ user.email|e }}', '{{ user.roles[0].id if user.roles else '' }}', '{{ user.branch_id or '' }}')"
+                                        class="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400" title="Edit">
+                                    <i class="fas fa-edit"></i>
                                 </button>
-                            </form>
+                                <form action="{{ url_for('admin.admin_toggle_user', user_id=user.id) }}" method="POST" class="inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="p-2 rounded-lg {% if user.is_active %}bg-red-500/20 hover:bg-red-500/30 text-red-400{% else %}bg-green-500/20 hover:bg-green-500/30 text-green-400{% endif %}" title="{{ 'Nonaktifkan' if user.is_active else 'Aktifkan' }}">
+                                        <i class="fas {% if user.is_active %}fa-ban{% else %}fa-check{% endif %}"></i>
+                                    </button>
+                                </form>
+                                {% if user.id != current_user.id %}
+                                <button onclick="confirmDeleteUser({{ user.id }}, '{{ user.username|e }}')"
+                                        class="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400" title="Hapus">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -178,4 +190,95 @@
         </form>
     </div>
 </div>
+
+<!-- Edit User Modal -->
+<div id="edit-user-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-4">Edit Pengguna</h3>
+        <form id="edit-user-form" method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="text-sm text-gray-400 mb-1 block">Nama Lengkap</label>
+                <input type="text" name="full_name" id="edit-full-name" required class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400 mb-1 block">Username</label>
+                <input type="text" name="username" id="edit-username" required class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400 mb-1 block">Email</label>
+                <input type="email" name="email" id="edit-email" required class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400 mb-1 block">Password <span class="text-xs text-gray-500">(kosongkan jika tidak diubah)</span></label>
+                <input type="password" name="password" minlength="6" class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white" placeholder="••••••">
+            </div>
+            <div>
+                <label class="text-sm text-gray-400 mb-1 block">Role</label>
+                <select name="role_id" id="edit-role" required class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
+                    {% for role in roles %}
+                    <option value="{{ role.id }}">{{ role.name|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-sm text-gray-400 mb-1 block">Cabang</label>
+                <select name="branch_id" id="edit-branch" class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
+                    {% if is_owner %}
+                    <option value="">Semua Cabang (Owner)</option>
+                    {% endif %}
+                    {% for branch in all_branches %}
+                    <option value="{{ branch.id }}">{{ branch.name }} ({{ branch.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex space-x-3 pt-2">
+                <button type="button" onclick="document.getElementById('edit-user-modal').classList.add('hidden')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300">Batal</button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl btn-primary text-white">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete User Confirm Modal -->
+<div id="delete-user-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
+    <div class="glass-card rounded-2xl p-6 w-full max-w-md">
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-user-times text-red-400 text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-red-400">Hapus Pengguna</h3>
+            <p class="text-gray-400 mt-2">Apakah Anda yakin ingin menghapus user <strong id="delete-username" class="text-white"></strong>?</p>
+        </div>
+        <form id="delete-user-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="flex space-x-3">
+                <button type="button" onclick="document.getElementById('delete-user-modal').classList.add('hidden')" 
+                        class="flex-1 py-2.5 rounded-xl bg-white/10 text-gray-300">Batal</button>
+                <button type="submit" class="flex-1 py-2.5 rounded-xl bg-red-500 text-white hover:bg-red-600 transition">
+                    <i class="fas fa-trash mr-2"></i>Ya, Hapus
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditUser(id, fullName, username, email, roleId, branchId) {
+    document.getElementById('edit-user-form').action = '/admin/users/' + id + '/edit';
+    document.getElementById('edit-full-name').value = fullName;
+    document.getElementById('edit-username').value = username;
+    document.getElementById('edit-email').value = email;
+    document.getElementById('edit-role').value = roleId;
+    document.getElementById('edit-branch').value = branchId;
+    document.getElementById('edit-user-modal').classList.remove('hidden');
+}
+
+function confirmDeleteUser(id, username) {
+    document.getElementById('delete-user-form').action = '/admin/users/' + id + '/delete';
+    document.getElementById('delete-username').textContent = username;
+    document.getElementById('delete-user-modal').classList.remove('hidden');
+}
+</script>
 {% endblock %}

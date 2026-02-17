@@ -165,6 +165,48 @@ def admin_toggle_user(user_id):
     flash(f'User {user.username} berhasil {status}!', 'success')
     return redirect(url_for('admin.admin_users'))
 
+@admin_bp.route('/admin/users/<int:user_id>/edit', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+
+    user.full_name = request.form.get('full_name', user.full_name)
+    user.username = request.form.get('username', user.username)
+    user.email = request.form.get('email', user.email)
+
+    password = request.form.get('password', '').strip()
+    if password:
+        user.set_password(password)
+
+    role_id = request.form.get('role_id')
+    if role_id:
+        role = db.session.get(Role, role_id)
+        if role:
+            user.roles = [role]
+
+    branch_id = request.form.get('branch_id', '').strip()
+    user.branch_id = int(branch_id) if branch_id else None
+
+    db.session.commit()
+    flash(f'User {user.username} berhasil diperbarui!', 'success')
+    return redirect(url_for('admin.admin_users'))
+
+@admin_bp.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_delete_user(user_id):
+    if current_user.id == user_id:
+        flash('Tidak bisa menghapus akun sendiri!', 'danger')
+        return redirect(url_for('admin.admin_users'))
+
+    user = User.query.get_or_404(user_id)
+    username = user.username
+    db.session.delete(user)
+    db.session.commit()
+    flash(f'User {username} berhasil dihapus!', 'success')
+    return redirect(url_for('admin.admin_users'))
+
 
 # ========== MENU MANAGEMENT ==========
 
