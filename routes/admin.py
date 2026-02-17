@@ -171,12 +171,25 @@ def admin_toggle_user(user_id):
 def admin_edit_user(user_id):
     user = User.query.get_or_404(user_id)
 
+    new_username = request.form.get('username', user.username)
+    new_email = request.form.get('email', user.email)
+
+    if new_username != user.username and User.query.filter_by(username=new_username).first():
+        flash('Username sudah digunakan!', 'danger')
+        return redirect(url_for('admin.admin_users'))
+    if new_email != user.email and User.query.filter_by(email=new_email).first():
+        flash('Email sudah digunakan!', 'danger')
+        return redirect(url_for('admin.admin_users'))
+
     user.full_name = request.form.get('full_name', user.full_name)
-    user.username = request.form.get('username', user.username)
-    user.email = request.form.get('email', user.email)
+    user.username = new_username
+    user.email = new_email
 
     password = request.form.get('password', '').strip()
     if password:
+        if len(password) < 6:
+            flash('Password minimal 6 karakter!', 'danger')
+            return redirect(url_for('admin.admin_users'))
         user.set_password(password)
 
     role_id = request.form.get('role_id')
@@ -186,7 +199,10 @@ def admin_edit_user(user_id):
             user.roles = [role]
 
     branch_id = request.form.get('branch_id', '').strip()
-    user.branch_id = int(branch_id) if branch_id else None
+    try:
+        user.branch_id = int(branch_id) if branch_id else None
+    except ValueError:
+        user.branch_id = None
 
     db.session.commit()
     flash(f'User {user.username} berhasil diperbarui!', 'success')
