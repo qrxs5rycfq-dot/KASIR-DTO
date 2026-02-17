@@ -148,6 +148,13 @@
 </style>
 
 <script>
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 async function updateStatus(orderId, status) {
     try {
         const response = await fetch(`/api/order/${orderId}/status`, {
@@ -172,19 +179,19 @@ async function viewOrder(orderId) {
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <p class="text-gray-400">Order Number</p>
-                        <p class="font-semibold">${order.order_number}</p>
+                        <p class="font-semibold">${escapeHtml(order.order_number)}</p>
                     </div>
                     <div>
                         <p class="text-gray-400">Customer</p>
-                        <p class="font-semibold">${order.customer_name || 'Guest'}</p>
+                        <p class="font-semibold">${escapeHtml(order.customer_name) || 'Guest'}</p>
                     </div>
                     <div>
                         <p class="text-gray-400">Meja</p>
-                        <p class="font-semibold">${order.table || 'Takeaway'}</p>
+                        <p class="font-semibold">${escapeHtml(order.table) || 'Takeaway'}</p>
                     </div>
                     <div>
                         <p class="text-gray-400">Status</p>
-                        <p class="font-semibold capitalize">${order.status}</p>
+                        <p class="font-semibold capitalize">${escapeHtml(order.status)}</p>
                     </div>
                 </div>
                 
@@ -194,10 +201,10 @@ async function viewOrder(orderId) {
                         ${order.items.map(item => `
                             <div class="flex justify-between items-center bg-white/5 rounded-lg p-3">
                                 <div>
-                                    <p class="font-medium">${item.name}</p>
+                                    <p class="font-medium">${escapeHtml(item.name)}</p>
                                     <p class="text-xs text-gray-400">
-                                        ${item.spice_level ? 'Pedas: ' + item.spice_level : ''}
-                                        ${item.temperature ? ' | Suhu: ' + item.temperature : ''}
+                                        ${item.spice_level ? 'Pedas: ' + escapeHtml(item.spice_level) : ''}
+                                        ${item.temperature ? ' | Suhu: ' + escapeHtml(item.temperature) : ''}
                                     </p>
                                 </div>
                                 <div class="text-right">
@@ -295,12 +302,12 @@ async function editOrder(orderId) {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Customer</label>
-                        <input type="text" id="edit-customer" value="${order.customer_name || ''}"
+                        <input type="text" id="edit-customer" value="${escapeHtml(order.customer_name) || ''}"
                                class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white">
                     </div>
                     <div>
                         <label class="block text-sm text-gray-400 mb-1">Catatan</label>
-                        <input type="text" id="edit-notes" value="${order.notes || ''}"
+                        <input type="text" id="edit-notes" value="${escapeHtml(order.notes) || ''}"
                                class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white">
                     </div>
                 </div>
@@ -310,7 +317,7 @@ async function editOrder(orderId) {
                         ${order.items.map(item => `
                             <div class="flex items-center gap-3 bg-white/5 rounded-lg p-3" data-item-id="${item.id}">
                                 <div class="flex-1">
-                                    <p class="font-medium">${item.name}</p>
+                                    <p class="font-medium">${escapeHtml(item.name)}</p>
                                     <p class="text-xs text-gray-400">Rp ${item.price.toLocaleString('id-ID')}/pcs</p>
                                 </div>
                                 <div class="flex items-center gap-2">
@@ -380,7 +387,7 @@ function closeEditModal() {
 }
 
 async function deleteOrder(orderId, orderNumber) {
-    if (!confirm(`Hapus pesanan ${orderNumber}? Data pesanan dan pembayaran akan dihapus permanen.`)) return;
+    if (!confirm(`Hapus pesanan ${escapeHtml(orderNumber)}? Data pesanan dan pembayaran akan dihapus permanen.`)) return;
 
     try {
         const response = await fetch(`/api/order/${orderId}`, {

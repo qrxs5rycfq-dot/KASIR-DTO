@@ -267,8 +267,19 @@ def api_edit_order(order_id):
                     old_qty = item.quantity
                     new_qty = int(item_data['quantity'])
                     if new_qty <= 0:
-                        continue
+                        return jsonify({'error': f'Jumlah item harus minimal 1'}), 400
                     diff = new_qty - old_qty
+                    # Check stock availability when increasing quantity
+                    if diff > 0 and item.menu_item_id:
+                        menu_item = db.session.get(MenuItem, item.menu_item_id)
+                        if menu_item:
+                            if order.branch_id:
+                                bms = get_branch_stock(menu_item.id, order.branch_id)
+                                if bms.stock < diff:
+                                    return jsonify({'error': f'Stok {menu_item.name} tidak cukup'}), 400
+                            else:
+                                if menu_item.stock < diff:
+                                    return jsonify({'error': f'Stok {menu_item.name} tidak cukup'}), 400
                     item.quantity = new_qty
                     item.subtotal = item.price * new_qty
                     # Adjust stock
