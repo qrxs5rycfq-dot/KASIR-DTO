@@ -238,6 +238,88 @@ def api_update_order_status(order_id):
     return jsonify({'success': True, 'order': order.to_dict()})
 
 
+@api_orders.route('/api/order/<int:order_id>', methods=['PUT'])
+@login_required
+@role_required('admin', 'manager')
+def api_edit_order(order_id):
+    """Edit order details (admin/manager only)."""
+    order = Order.query.get_or_404(order_id)
+    data = request.json
+
+    if 'customer_name' in data:
+        order.customer_name = data['customer_name']
+    if 'table_id' in data:
+        if data['table_id']:
+            table = db.session.get(Table, data['table_id'])
+            if table:
+                order.table_id = table.id
+        else:
+            order.table_id = None
+    if 'notes' in data:
+        order.notes = data['notes']
+
+    # Edit order items
+    if 'items' in data:
+        for item_data in data['items']:
+            item = db.session.get(OrderItem, item_data.get('id'))
+            if item and item.order_id == order.id:
+                if 'quantity' in item_data:
+                    old_qty = item.quantity
+                    new_qty = int(item_data['quantity'])
+                    if new_qty <= 0:
+                        continue
+                    diff = new_qty - old_qty
+                    item.quantity = new_qty
+                    item.subtotal = item.price * new_qty
+                    # Adjust stock
+                    if item.menu_item_id and diff != 0:
+                        menu_item = db.session.get(MenuItem, item.menu_item_id)
+                        if menu_item:
+                            if order.branch_id:
+                                bms = get_branch_stock(menu_item.id, order.branch_id)
+                                bms.stock -= diff
+                            else:
+                                menu_item.stock -= diff
+                if 'notes' in item_data:
+                    item.notes = item_data['notes']
+
+        # Recalculate totals
+        order.subtotal = sum(i.subtotal for i in order.items)
+        order.total = order.subtotal - (order.discount or 0)
+
+    db.session.commit()
+    return jsonify({'success': True, 'order': order.to_dict()})
+
+
+@api_orders.route('/api/order/<int:order_id>', methods=['DELETE'])
+@login_required
+@role_required('admin', 'manager')
+def api_delete_order(order_id):
+    """Delete an order (admin/manager only). Restores stock."""
+    order = Order.query.get_or_404(order_id)
+
+    # Restore stock for non-cancelled orders
+    if order.status != 'cancelled':
+        for item in order.items:
+            if item.menu_item_id:
+                menu_item = db.session.get(MenuItem, item.menu_item_id)
+                if menu_item:
+                    if order.branch_id:
+                        bms = get_branch_stock(menu_item.id, order.branch_id)
+                        bms.stock += item.quantity
+                    else:
+                        menu_item.stock += item.quantity
+
+    # Free up table
+    if order.table:
+        order.table.status = 'available'
+
+    # Delete order (cascade removes items and payment)
+    db.session.delete(order)
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'Pesanan berhasil dihapus'})
+
 @api_orders.route('/api/kitchen/orders')
 @login_required
 @role_required('admin', 'manager', 'koki', 'kasir')

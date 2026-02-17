@@ -77,6 +77,14 @@
                                     <i class="fas fa-check"></i>
                                 </button>
                                 {% endif %}
+                                {% if current_user.has_role('admin') or current_user.has_role('manager') %}
+                                <button onclick="editOrder({{ order.id }})" class="p-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteOrder({{ order.id }}, '{{ order.order_number }}')" class="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400" title="Hapus">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -105,6 +113,27 @@
         </div>
     </div>
 </div>
+
+{% if current_user.has_role('admin') or current_user.has_role('manager') %}
+<!-- Edit Order Modal -->
+<div id="edit-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+        <div class="flex items-center justify-between p-4 border-b border-white/10">
+            <h3 class="text-lg font-semibold">Edit Pesanan</h3>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="edit-modal-content" class="p-4 overflow-y-auto max-h-[60vh]">
+            <!-- Content will be loaded dynamically -->
+        </div>
+        <div class="p-4 border-t border-white/10 flex justify-end space-x-3">
+            <button onclick="closeEditModal()" class="px-4 py-2 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20">Batal</button>
+            <button onclick="saveOrder()" class="px-4 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600">Simpan</button>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <style>
     .highlight-order {
@@ -252,5 +281,126 @@ document.addEventListener('DOMContentLoaded', function() {
 document.getElementById('order-modal').addEventListener('click', function(e) {
     if (e.target === this) closeOrderModal();
 });
+
+{% if current_user.has_role('admin') or current_user.has_role('manager') %}
+async function editOrder(orderId) {
+    try {
+        const response = await fetch(`/api/order/${orderId}`);
+        const order = await response.json();
+
+        const content = document.getElementById('edit-modal-content');
+        content.innerHTML = `
+            <input type="hidden" id="edit-order-id" value="${order.id}">
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Customer</label>
+                        <input type="text" id="edit-customer" value="${order.customer_name || ''}"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Catatan</label>
+                        <input type="text" id="edit-notes" value="${order.notes || ''}"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Items</label>
+                    <div class="space-y-2" id="edit-items">
+                        ${order.items.map(item => `
+                            <div class="flex items-center gap-3 bg-white/5 rounded-lg p-3" data-item-id="${item.id}">
+                                <div class="flex-1">
+                                    <p class="font-medium">${item.name}</p>
+                                    <p class="text-xs text-gray-400">Rp ${item.price.toLocaleString('id-ID')}/pcs</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs text-gray-400">Qty:</label>
+                                    <input type="number" min="1" value="${item.quantity}"
+                                           class="edit-item-qty w-16 bg-white/10 border border-white/10 rounded px-2 py-1 text-center text-white">
+                                </div>
+                                <div class="w-24 text-right">
+                                    <span class="text-primary-400 edit-item-subtotal">Rp ${item.subtotal.toLocaleString('id-ID')}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Update subtotals on quantity change
+        content.querySelectorAll('.edit-item-qty').forEach(input => {
+            input.addEventListener('input', function() {
+                const row = this.closest('[data-item-id]');
+                const price = parseInt(row.querySelector('.text-xs').textContent.replace(/\D/g, ''));
+                const qty = parseInt(this.value) || 0;
+                row.querySelector('.edit-item-subtotal').textContent = 'Rp ' + (price * qty).toLocaleString('id-ID');
+            });
+        });
+
+        document.getElementById('edit-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function saveOrder() {
+    const orderId = document.getElementById('edit-order-id').value;
+    const items = [];
+    document.querySelectorAll('#edit-items [data-item-id]').forEach(row => {
+        items.push({
+            id: parseInt(row.dataset.itemId),
+            quantity: parseInt(row.querySelector('.edit-item-qty').value) || 1
+        });
+    });
+
+    try {
+        const response = await fetch(`/api/order/${orderId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                customer_name: document.getElementById('edit-customer').value,
+                notes: document.getElementById('edit-notes').value,
+                items: items
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            location.reload();
+        } else {
+            alert(result.error || 'Gagal menyimpan');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+}
+
+async function deleteOrder(orderId, orderNumber) {
+    if (!confirm(`Hapus pesanan ${orderNumber}? Data pesanan dan pembayaran akan dihapus permanen.`)) return;
+
+    try {
+        const response = await fetch(`/api/order/${orderId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+        if (result.success) {
+            location.reload();
+        } else {
+            alert(result.error || 'Gagal menghapus');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+});
+{% endif %}
 </script>
 {% endblock %}

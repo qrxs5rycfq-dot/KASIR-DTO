@@ -374,13 +374,13 @@ def kitchen():
 
 @views_bp.route('/reports')
 @login_required
-@role_required('admin', 'manager')
+@role_required('admin', 'manager', 'kasir')
 def reports():
     return render_template('reports.html')
 
 @views_bp.route('/analytics')
 @login_required
-@role_required('admin', 'manager')
+@role_required('admin', 'manager', 'kasir')
 def analytics():
     """Comprehensive analytics dashboard with real data and percentages.
     Supports filtering by city_id, brand_id, and branch_id query parameters."""
@@ -695,7 +695,7 @@ def analytics():
 
 @views_bp.route('/reports/income')
 @login_required
-@role_required('admin', 'manager')
+@role_required('admin', 'manager', 'kasir')
 def income_report():
     # Get date range from query params
     start_date_str = request.args.get('start_date', datetime.now().strftime('%Y-%m-01'))
@@ -739,7 +739,7 @@ def income_report():
 
 @views_bp.route('/reports/export/pdf')
 @login_required
-@role_required('admin', 'manager')
+@role_required('admin', 'manager', 'kasir')
 def export_pdf():
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
@@ -920,7 +920,7 @@ def export_pdf():
 
 @views_bp.route('/reports/export/excel')
 @login_required
-@role_required('admin', 'manager')
+@role_required('admin', 'manager', 'kasir')
 def export_excel():
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill, numbers
