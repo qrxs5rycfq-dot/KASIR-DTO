@@ -362,7 +362,7 @@ def expense_delete(expense_id):
 
 @views_bp.route('/kitchen')
 @login_required
-@role_required('admin', 'manager', 'koki')
+@role_required('admin', 'manager', 'koki', 'kasir')
 def kitchen():
     """Kitchen display page for cooks"""
     return render_template('kitchen.html')
