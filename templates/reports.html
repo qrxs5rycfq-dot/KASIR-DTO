@@ -23,7 +23,7 @@
                 </div>
                 <h3 class="text-lg font-semibold mb-2">Laporan Pendapatan</h3>
                 <p class="text-gray-400 text-sm mb-4">Lihat detail pendapatan harian, mingguan, atau bulanan</p>
-                <a href="{{ url_for('income_report') }}" class="btn-primary inline-block px-4 py-2 rounded-xl text-sm font-medium">
+                <a href="{{ url_for('views.income_report') }}" class="btn-primary inline-block px-4 py-2 rounded-xl text-sm font-medium">
                     <i class="fas fa-eye mr-2"></i>Lihat Laporan
                 </a>
             </div>
@@ -35,7 +35,7 @@
                 </div>
                 <h3 class="text-lg font-semibold mb-2">Export PDF</h3>
                 <p class="text-gray-400 text-sm mb-4">Download laporan dalam format PDF</p>
-                <form action="{{ url_for('export_pdf') }}" method="GET" class="space-y-3">
+                <form action="{{ url_for('views.export_pdf') }}" method="GET" class="space-y-3">
                     <div class="grid grid-cols-2 gap-2">
                         <input type="date" name="start_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
                         <input type="date" name="end_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
@@ -53,7 +53,7 @@
                 </div>
                 <h3 class="text-lg font-semibold mb-2">Export Excel</h3>
                 <p class="text-gray-400 text-sm mb-4">Download laporan dalam format Excel</p>
-                <form action="{{ url_for('export_excel') }}" method="GET" class="space-y-3">
+                <form action="{{ url_for('views.export_excel') }}" method="GET" class="space-y-3">
                     <div class="grid grid-cols-2 gap-2">
                         <input type="date" name="start_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
                         <input type="date" name="end_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">

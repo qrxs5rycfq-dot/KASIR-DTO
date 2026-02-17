@@ -75,7 +75,7 @@
                             </span>
                         </td>
                         <td class="p-4">
-                            <form action="{{ url_for('admin_toggle_user', user_id=user.id) }}" method="POST" class="inline">
+                            <form action="{{ url_for('admin.admin_toggle_user', user_id=user.id) }}" method="POST" class="inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                 <button type="submit" class="p-2 rounded-lg {% if user.is_active %}bg-red-500/20 hover:bg-red-500/30 text-red-400{% else %}bg-green-500/20 hover:bg-green-500/30 text-green-400{% endif %}">
                                     <i class="fas {% if user.is_active %}fa-ban{% else %}fa-check{% endif %}"></i>
@@ -94,7 +94,7 @@
 <div id="add-user-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
     <div class="glass-card rounded-2xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Tambah Pengguna Baru</h3>
-        <form action="{{ url_for('admin_create_user') }}" method="POST" class="space-y-4">
+        <form action="{{ url_for('admin.admin_create_user') }}" method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div>
                 <label class="text-sm text-gray-400 mb-1 block">Nama Lengkap</label>
@@ -166,7 +166,7 @@
                 <li><i class="fas fa-check text-green-400 mr-2"></i>Data meja</li>
             </ul>
         </div>
-        <form action="{{ url_for('reset_database') }}" method="POST">
+        <form action="{{ url_for('admin.reset_database') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="flex space-x-3">
                 <button type="button" onclick="document.getElementById('reset-db-modal').classList.add('hidden')" 

@@ -14,7 +14,7 @@
                 <h1 class="text-2xl font-display font-bold">Laporan Pendapatan</h1>
                 <p class="text-gray-400">Periode: {{ start_date }} - {{ end_date }}</p>
             </div>
-            <a href="{{ url_for('reports') }}" class="text-gray-400 hover:text-white">
+            <a href="{{ url_for('views.reports') }}" class="text-gray-400 hover:text-white">
                 <i class="fas fa-arrow-left mr-2"></i>Kembali
             </a>
         </header>
@@ -77,11 +77,11 @@
             <div class="p-4 border-b border-white/10 flex items-center justify-between">
                 <h3 class="font-semibold">Detail Pesanan</h3>
                 <div class="flex space-x-2">
-                    <a href="{{ url_for('export_pdf', start_date=start_date, end_date=end_date) }}" 
+                    <a href="{{ url_for('views.export_pdf', start_date=start_date, end_date=end_date) }}" 
                        class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30">
                         <i class="fas fa-file-pdf mr-1"></i>PDF
                     </a>
-                    <a href="{{ url_for('export_excel', start_date=start_date, end_date=end_date) }}"
+                    <a href="{{ url_for('views.export_excel', start_date=start_date, end_date=end_date) }}"
                        class="px-3 py-1.5 rounded-lg bg-green-500/20 text-green-400 text-sm hover:bg-green-500/30">
                         <i class="fas fa-file-excel mr-1"></i>Excel
                     </a>

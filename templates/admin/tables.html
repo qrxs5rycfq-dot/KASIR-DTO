@@ -64,7 +64,7 @@
                             class="px-3 py-1.5 rounded-lg bg-primary-500/20 text-primary-400 text-sm hover:bg-primary-500/30">
                         <i class="fas fa-qrcode mr-1"></i>QR
                     </button>
-                    <a href="{{ url_for('online_order', table_number=table.number) }}" target="_blank"
+                    <a href="{{ url_for('views.online_order', table_number=table.number) }}" target="_blank"
                        class="px-3 py-1.5 rounded-lg bg-white/10 text-gray-300 text-sm hover:bg-white/20">
                         <i class="fas fa-external-link-alt mr-1"></i>Link
                     </a>
@@ -79,7 +79,7 @@
 <div id="add-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center flex">
     <div class="glass-card rounded-2xl p-6 w-full max-w-md">
         <h3 class="text-lg font-semibold mb-4">Tambah Meja Baru</h3>
-        <form action="{{ url_for('admin_table_add') }}" method="POST">
+        <form action="{{ url_for('admin.admin_table_add') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="space-y-4">
                 <div>

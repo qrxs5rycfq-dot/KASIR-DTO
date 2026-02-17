@@ -18,16 +18,16 @@
         
         <!-- Filters -->
         <div class="glass-card rounded-2xl p-4 mb-6 flex items-center space-x-4">
-            <a href="{{ url_for('orders') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'all' %}bg-primary-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+            <a href="{{ url_for('views.orders') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'all' %}bg-primary-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
                 Semua
             </a>
-            <a href="{{ url_for('orders', status='pending') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'pending' %}bg-yellow-500 text-black{% else %}bg-white/5 text-gray-400{% endif %}">
+            <a href="{{ url_for('views.orders', status='pending') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'pending' %}bg-yellow-500 text-black{% else %}bg-white/5 text-gray-400{% endif %}">
                 Pending
             </a>
-            <a href="{{ url_for('orders', status='processing') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'processing' %}bg-blue-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+            <a href="{{ url_for('views.orders', status='processing') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'processing' %}bg-blue-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
                 Diproses
             </a>
-            <a href="{{ url_for('orders', status='completed') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'completed' %}bg-green-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+            <a href="{{ url_for('views.orders', status='completed') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'completed' %}bg-green-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
                 Selesai
             </a>
         </div>

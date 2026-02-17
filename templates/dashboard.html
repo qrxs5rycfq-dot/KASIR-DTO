@@ -120,7 +120,7 @@
                         <p class="text-gray-400 text-sm">{{ low_stock_items|length }} item perlu segera diisi ulang</p>
                     </div>
                 </div>
-                <a href="{{ url_for('admin_menu') }}" class="text-primary-400 hover:text-primary-300 text-sm">Kelola Menu</a>
+                <a href="{{ url_for('admin.admin_menu') }}" class="text-primary-400 hover:text-primary-300 text-sm">Kelola Menu</a>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {% for item in low_stock_items[:6] %}
@@ -146,7 +146,7 @@
             <div class="lg:col-span-2 glass-card rounded-2xl p-6 animate-fade-in" style="animation-delay: 0.4s">
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="text-lg font-semibold">Menu Populer</h2>
-                    <a href="{{ url_for('admin_menu') }}" class="text-primary-400 hover:text-primary-300 text-sm">Lihat Semua</a>
+                    <a href="{{ url_for('admin.admin_menu') }}" class="text-primary-400 hover:text-primary-300 text-sm">Lihat Semua</a>
                 </div>
                 
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -168,7 +168,7 @@
             <div class="glass-card rounded-2xl p-6 animate-fade-in" style="animation-delay: 0.5s">
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="text-lg font-semibold">Pesanan Terbaru</h2>
-                    <a href="{{ url_for('orders') }}" class="text-primary-400 hover:text-primary-300 text-sm">Lihat Semua</a>
+                    <a href="{{ url_for('views.orders') }}" class="text-primary-400 hover:text-primary-300 text-sm">Lihat Semua</a>
                 </div>
                 
                 <div class="space-y-4">

@@ -186,7 +186,7 @@
                 {% endif %}
                 
                 <!-- Back Button (hidden initially) -->
-                <a id="backButton" href="{{ url_for('orders') }}" 
+                <a id="backButton" href="{{ url_for('views.orders') }}" 
                    class="hidden w-full mt-4 py-3 bg-white/10 text-white font-semibold rounded-xl text-center 
                           hover:bg-white/20 transition-all duration-200">
                     Kembali ke Pesanan
@@ -368,7 +368,7 @@
                     
                     // Redirect after a short delay
                     setTimeout(() => {
-                        window.location.href = "{{ url_for('orders') }}";
+                        window.location.href = "{{ url_for('views.orders') }}";
                     }, 3000);
                 },
                 onPending: function(result) {
@@ -480,7 +480,7 @@
                     saveReceiptToServerQueue(orderData, 3);
                     
                     setTimeout(() => {
-                        window.location.href = "{{ url_for('orders') }}";
+                        window.location.href = "{{ url_for('views.orders') }}";
                     }, 3000);
                 } else {
                     statusMsg.className = 'mt-2 p-3 rounded-lg text-sm text-center bg-yellow-500/20 text-yellow-400';
