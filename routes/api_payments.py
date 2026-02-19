@@ -789,3 +789,593 @@ def api_test_tripay_gateway():
         return jsonify({'success': False, 'message': 'Koneksi timeout'})
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+
+# ========== DUITKU PAYMENT GATEWAY ==========
+
+def duitku_create_invoice(order):
+    """Create a Duitku invoice payment"""
+    api_key = os.environ.get('DUITKU_API_KEY', '')
+    merchant_code = os.environ.get('DUITKU_MERCHANT_CODE', '')
+    is_production = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+
+    if not api_key or not merchant_code:
+        return None, 'DUITKU_API_KEY atau DUITKU_MERCHANT_CODE belum dikonfigurasi'
+
+    base_url = 'https://api-prod.duitku.com' if is_production else 'https://api-sandbox.duitku.com'
+    merchant_order_id = f"DTO-{order.order_number}"
+    amount = int(order.total)
+
+    # Signature: SHA256(merchantCode + paymentAmount + merchantOrderId + apiKey)
+    signature = hashlib.sha256(
+        f"{merchant_code}{amount}{merchant_order_id}{api_key}".encode('utf-8')
+    ).hexdigest()
+
+    # Determine callback/return URLs
+    app_url = current_app.config.get('APP_URL', '') or request.host_url.rstrip('/')
+    callback_url = f"{app_url}/api/payment/duitku/callback"
+    return_url = f"{app_url}/orders"
+
+    payload = {
+        'merchantCode': merchant_code,
+        'paymentAmount': amount,
+        'merchantOrderId': merchant_order_id,
+        'productDetails': f'Order #{order.order_number}',
+        'email': 'customer@kasir.local',
+        'callbackUrl': callback_url,
+        'returnUrl': return_url,
+        'signature': signature,
+        'customerVaName': order.customer_name or 'Customer',
+        'expiryPeriod': 1440  # 24 hours in minutes
+    }
+
+    if current_user.is_authenticated and current_user.email:
+        payload['email'] = current_user.email
+
+    headers = {'Content-Type': 'application/json'}
+
+    try:
+        resp = requests.post(
+            f'{base_url}/api/merchant/createInvoice',
+            json=payload, headers=headers, timeout=30
+        )
+        data = resp.json()
+
+        if data.get('statusCode') == '00':
+            return data, None
+        else:
+            return None, data.get('statusMessage', f'Duitku error: {resp.text[:200]}')
+    except Exception as e:
+        return None, f'Duitku connection error: {str(e)}'
+
+
+@api_payments.route('/api/payment/duitku/create', methods=['POST'])
+@login_required
+def api_create_duitku_payment():
+    """Create Duitku payment for an order"""
+    try:
+        data = request.json
+        order_id = data.get('order_id')
+        order = Order.query.get_or_404(order_id)
+
+        result, err = duitku_create_invoice(order)
+        if not result:
+            return jsonify({'success': False, 'error': err}), 400
+
+        merchant_order_id = f"DTO-{order.order_number}"
+        payment_url = result.get('paymentUrl', '')
+        reference = result.get('reference', '')
+
+        if order.payment:
+            order.payment.payment_method = 'duitku'
+            order.payment.midtrans_order_id = merchant_order_id
+            order.payment.midtrans_transaction_id = reference
+            order.payment.status = 'pending'
+            order.payment.payment_url = payment_url
+        else:
+            payment = Payment(
+                order_id=order.id,
+                payment_method='duitku',
+                amount=order.total,
+                status='pending',
+                midtrans_order_id=merchant_order_id,
+                midtrans_transaction_id=reference,
+                payment_url=payment_url
+            )
+            db.session.add(payment)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'payment_url': payment_url,
+            'reference': reference,
+            'merchant_order_id': merchant_order_id,
+            'amount': order.total
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@csrf.exempt
+@api_payments.route('/api/payment/duitku/callback', methods=['POST'])
+@limiter.limit("30 per minute")
+def api_duitku_callback():
+    """Handle Duitku payment callback webhook"""
+    try:
+        api_key = os.environ.get('DUITKU_API_KEY', '')
+        merchant_code = request.form.get('merchantCode', '')
+        amount = request.form.get('amount', '')
+        merchant_order_id = request.form.get('merchantOrderId', '')
+        result_code = request.form.get('resultCode', '')
+        callback_signature = request.form.get('signature', '')
+
+        # Verify signature: MD5(merchantCode + amount + merchantOrderId + apiKey)
+        if api_key and callback_signature:
+            expected_signature = hashlib.md5(
+                f"{merchant_code}{amount}{merchant_order_id}{api_key}".encode('utf-8')
+            ).hexdigest()
+            if not hmac.compare_digest(callback_signature, expected_signature):
+                import logging
+                logging.getLogger(__name__).warning(
+                    'Duitku callback signature mismatch from %s', request.remote_addr
+                )
+                return jsonify({'error': 'Invalid signature'}), 403
+
+        payment = Payment.query.filter_by(midtrans_order_id=merchant_order_id).first()
+        if payment:
+            if result_code == '00':
+                payment.status = 'paid'
+                payment.paid_at = utc_now()
+                payment.order.status = 'completed'
+
+                amount_formatted = f"{payment.amount:,}".replace(',', '.')
+                create_notification(
+                    type='payment_success',
+                    title='Pembayaran Duitku Berhasil!',
+                    message=f'Order #{payment.order.order_number} - Rp {amount_formatted}',
+                    data={'order_id': payment.order_id, 'payment_id': payment.id}
+                )
+            elif result_code == '01':
+                payment.status = 'failed'
+                create_notification(
+                    type='payment_failed',
+                    title='Pembayaran Duitku Gagal',
+                    message=f'Order #{payment.order.order_number} - Status: Failed',
+                    data={'order_id': payment.order_id, 'payment_id': payment.id}
+                )
+
+            db.session.commit()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_payments.route('/api/payment/duitku/status', methods=['POST'])
+@login_required
+def api_check_duitku_status():
+    """Check Duitku payment status"""
+    data = request.json
+    order_id = data.get('order_id')
+    order = Order.query.get_or_404(order_id)
+
+    if not order.payment or not order.payment.midtrans_order_id:
+        return jsonify({'success': False, 'error': 'No Duitku transaction found'}), 400
+
+    api_key = os.environ.get('DUITKU_API_KEY', '')
+    merchant_code = os.environ.get('DUITKU_MERCHANT_CODE', '')
+    is_production = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+    base_url = 'https://api-prod.duitku.com' if is_production else 'https://api-sandbox.duitku.com'
+
+    merchant_order_id = order.payment.midtrans_order_id
+    signature = hashlib.md5(
+        f"{merchant_code}{merchant_order_id}{api_key}".encode('utf-8')
+    ).hexdigest()
+
+    try:
+        resp = requests.post(
+            f'{base_url}/api/merchant/transactionStatus',
+            json={
+                'merchantCode': merchant_code,
+                'merchantOrderId': merchant_order_id,
+                'signature': signature
+            },
+            headers={'Content-Type': 'application/json'},
+            timeout=15
+        )
+        resp_data = resp.json()
+        status_code = resp_data.get('statusCode', '')
+
+        if status_code == '00' and order.payment.status != 'paid':
+            order.payment.status = 'paid'
+            order.payment.paid_at = utc_now()
+            order.status = 'completed'
+
+            amount_formatted = f"{order.payment.amount:,}".replace(',', '.')
+            create_notification(
+                type='payment_success',
+                title='Pembayaran Duitku Berhasil!',
+                message=f'Order #{order.order_number} - Rp {amount_formatted}',
+                data={'order_id': order.id, 'payment_id': order.payment.id}
+            )
+            db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'status': 'paid' if status_code == '00' else 'pending',
+            'duitku_status': resp_data.get('statusMessage', ''),
+            'details': resp_data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_payments.route('/api/payment-gateway/test-duitku', methods=['POST'])
+@login_required
+@role_required('admin')
+def api_test_duitku_gateway():
+    """Test Duitku API connection"""
+    api_key = os.environ.get('DUITKU_API_KEY', '')
+    merchant_code = os.environ.get('DUITKU_MERCHANT_CODE', '')
+    is_production = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+
+    if not api_key or not merchant_code:
+        return jsonify({
+            'success': False,
+            'message': 'DUITKU_API_KEY atau DUITKU_MERCHANT_CODE belum dikonfigurasi'
+        })
+
+    base_url = 'https://api-prod.duitku.com' if is_production else 'https://api-sandbox.duitku.com'
+
+    # Test by getting payment methods
+    amount = 10000
+    signature = hashlib.sha256(
+        f"{merchant_code}{amount}{api_key}".encode('utf-8')
+    ).hexdigest()
+
+    try:
+        resp = requests.post(
+            f'{base_url}/api/merchant/paymentmethod/getpaymentmethod',
+            json={
+                'merchantcode': merchant_code,
+                'amount': amount,
+                'datetime': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+                'signature': signature
+            },
+            headers={'Content-Type': 'application/json'},
+            timeout=10
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data.get('paymentFee'), list):
+                method_count = len(data['paymentFee'])
+                return jsonify({
+                    'success': True,
+                    'message': f'Koneksi Duitku berhasil! {method_count} metode pembayaran tersedia. Mode: {"Production" if is_production else "Sandbox"}'
+                })
+            elif data.get('Message'):
+                return jsonify({'success': False, 'message': data['Message']})
+            else:
+                return jsonify({
+                    'success': True,
+                    'message': f'Koneksi Duitku berhasil! Mode: {"Production" if is_production else "Sandbox"}'
+                })
+        else:
+            return jsonify({'success': False, 'message': f'HTTP {resp.status_code}'})
+    except requests.exceptions.Timeout:
+        return jsonify({'success': False, 'message': 'Koneksi timeout'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+
+# ========== DOKU CHECKOUT PAYMENT GATEWAY ==========
+
+def doku_generate_signature(client_id, secret_key, request_id, request_timestamp, request_target, body_json=None):
+    """Generate DOKU HMAC-SHA256 signature"""
+    # Calculate digest from body (SHA256 + Base64)
+    if body_json:
+        import json
+        body_string = json.dumps(body_json, separators=(',', ':'))
+        digest = base64.b64encode(
+            hashlib.sha256(body_string.encode('utf-8')).digest()
+        ).decode('utf-8')
+    else:
+        digest = ''
+
+    # Build component signature string
+    component = f"Client-Id:{client_id}\nRequest-Id:{request_id}\nRequest-Timestamp:{request_timestamp}\nRequest-Target:{request_target}"
+    if digest:
+        component += f"\nDigest:{digest}"
+
+    # HMAC-SHA256 sign
+    signature = base64.b64encode(
+        hmac.new(
+            secret_key.encode('utf-8'),
+            component.encode('utf-8'),
+            hashlib.sha256
+        ).digest()
+    ).decode('utf-8')
+
+    return f"HMACSHA256={signature}"
+
+
+@api_payments.route('/api/payment/doku/create', methods=['POST'])
+@login_required
+def api_create_doku_payment():
+    """Create DOKU Checkout payment for an order"""
+    try:
+        data = request.json
+        order_id = data.get('order_id')
+        order = Order.query.get_or_404(order_id)
+
+        client_id = os.environ.get('DOKU_CLIENT_ID', '')
+        secret_key = os.environ.get('DOKU_SECRET_KEY', '')
+        is_production = os.environ.get('DOKU_IS_PRODUCTION', 'false').lower() == 'true'
+
+        if not client_id or not secret_key:
+            return jsonify({'success': False, 'error': 'DOKU_CLIENT_ID atau DOKU_SECRET_KEY belum dikonfigurasi'}), 400
+
+        base_url = 'https://api.doku.com' if is_production else 'https://api-sandbox.doku.com'
+        request_target = '/checkout/v1/payment'
+        invoice_number = f"DTO-{order.order_number}"
+
+        import uuid
+        request_id = str(uuid.uuid4())
+        request_timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # Determine callback URL
+        app_url = current_app.config.get('APP_URL', '') or request.host_url.rstrip('/')
+
+        payload = {
+            'order': {
+                'amount': int(order.total),
+                'invoice_number': invoice_number,
+                'currency': 'IDR',
+                'callback_url': f"{app_url}/api/payment/doku/callback",
+                'line_items': [{
+                    'name': item.name[:50],
+                    'price': int(item.price),
+                    'quantity': item.quantity
+                } for item in order.items]
+            },
+            'payment': {
+                'payment_due_date': 60
+            },
+            'customer': {
+                'name': order.customer_name or 'Customer',
+                'email': 'customer@kasir.local'
+            }
+        }
+
+        if current_user.is_authenticated and current_user.email:
+            payload['customer']['email'] = current_user.email
+
+        signature = doku_generate_signature(
+            client_id, secret_key, request_id, request_timestamp, request_target, payload
+        )
+
+        import json
+        headers = {
+            'Client-Id': client_id,
+            'Request-Id': request_id,
+            'Request-Timestamp': request_timestamp,
+            'Signature': signature,
+            'Content-Type': 'application/json'
+        }
+
+        resp = requests.post(
+            f'{base_url}{request_target}',
+            data=json.dumps(payload, separators=(',', ':')),
+            headers=headers,
+            timeout=30
+        )
+
+        resp_data = resp.json()
+
+        if resp.status_code in (200, 201):
+            response_data = resp_data.get('response', resp_data)
+            payment_info = response_data.get('payment', {})
+            payment_url = payment_info.get('url', '')
+            order_info = response_data.get('order', {})
+
+            if order.payment:
+                order.payment.payment_method = 'doku'
+                order.payment.midtrans_order_id = invoice_number
+                order.payment.midtrans_transaction_id = order_info.get('invoice_number', invoice_number)
+                order.payment.status = 'pending'
+                order.payment.payment_url = payment_url
+            else:
+                payment = Payment(
+                    order_id=order.id,
+                    payment_method='doku',
+                    amount=order.total,
+                    status='pending',
+                    midtrans_order_id=invoice_number,
+                    midtrans_transaction_id=order_info.get('invoice_number', invoice_number),
+                    payment_url=payment_url
+                )
+                db.session.add(payment)
+
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'payment_url': payment_url,
+                'invoice_number': invoice_number,
+                'amount': order.total
+            })
+        else:
+            error_msg = resp_data.get('error', {}).get('message', resp.text[:200])
+            return jsonify({'success': False, 'error': f'DOKU error: {error_msg}'}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@csrf.exempt
+@api_payments.route('/api/payment/doku/callback', methods=['POST'])
+@limiter.limit("30 per minute")
+def api_doku_callback():
+    """Handle DOKU payment notification webhook"""
+    try:
+        client_id = os.environ.get('DOKU_CLIENT_ID', '')
+        secret_key = os.environ.get('DOKU_SECRET_KEY', '')
+
+        # Verify signature from headers
+        received_signature = request.headers.get('Signature', '')
+        header_client_id = request.headers.get('Client-Id', '')
+        header_request_id = request.headers.get('Request-Id', '')
+        header_timestamp = request.headers.get('Request-Timestamp', '')
+
+        if secret_key and received_signature:
+            raw_body = request.get_data(as_text=True)
+            digest = base64.b64encode(
+                hashlib.sha256(raw_body.encode('utf-8')).digest()
+            ).decode('utf-8')
+
+            # Reconstruct signature
+            request_target = '/api/payment/doku/callback'
+            component = f"Client-Id:{header_client_id}\nRequest-Id:{header_request_id}\nRequest-Timestamp:{header_timestamp}\nRequest-Target:{request_target}\nDigest:{digest}"
+            expected_signature = base64.b64encode(
+                hmac.new(
+                    secret_key.encode('utf-8'),
+                    component.encode('utf-8'),
+                    hashlib.sha256
+                ).digest()
+            ).decode('utf-8')
+
+            if received_signature != f"HMACSHA256={expected_signature}":
+                import logging
+                logging.getLogger(__name__).warning(
+                    'DOKU callback signature mismatch from %s', request.remote_addr
+                )
+                return jsonify({'error': 'Invalid signature'}), 403
+
+        data = request.json
+        if not data:
+            return jsonify({'error': 'No data'}), 400
+
+        # Extract transaction info
+        order_info = data.get('order', {})
+        transaction_info = data.get('transaction', {})
+        invoice_number = order_info.get('invoice_number', '')
+        status = transaction_info.get('status', '')
+
+        payment = Payment.query.filter_by(midtrans_order_id=invoice_number).first()
+        if payment:
+            if status == 'SUCCESS':
+                payment.status = 'paid'
+                payment.paid_at = utc_now()
+                payment.order.status = 'completed'
+
+                amount_formatted = f"{payment.amount:,}".replace(',', '.')
+                create_notification(
+                    type='payment_success',
+                    title='Pembayaran DOKU Berhasil!',
+                    message=f'Order #{payment.order.order_number} - Rp {amount_formatted}',
+                    data={'order_id': payment.order_id, 'payment_id': payment.id}
+                )
+            elif status in ('FAILED', 'EXPIRED'):
+                payment.status = 'failed'
+                create_notification(
+                    type='payment_failed',
+                    title='Pembayaran DOKU Gagal',
+                    message=f'Order #{payment.order.order_number} - Status: {status}',
+                    data={'order_id': payment.order_id, 'payment_id': payment.id}
+                )
+
+            db.session.commit()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@api_payments.route('/api/payment/doku/status', methods=['POST'])
+@login_required
+def api_check_doku_status():
+    """Check DOKU payment status (by re-querying the order)"""
+    data = request.json
+    order_id = data.get('order_id')
+    order = Order.query.get_or_404(order_id)
+
+    if not order.payment:
+        return jsonify({'success': False, 'error': 'No DOKU transaction found'}), 400
+
+    # DOKU Checkout relies on webhook notifications for status updates
+    # Return current stored status
+    return jsonify({
+        'success': True,
+        'status': order.payment.status,
+        'invoice_number': order.payment.midtrans_order_id
+    })
+
+
+@api_payments.route('/api/payment-gateway/test-doku', methods=['POST'])
+@login_required
+@role_required('admin')
+def api_test_doku_gateway():
+    """Test DOKU API connection by making a small checkout request"""
+    client_id = os.environ.get('DOKU_CLIENT_ID', '')
+    secret_key = os.environ.get('DOKU_SECRET_KEY', '')
+    is_production = os.environ.get('DOKU_IS_PRODUCTION', 'false').lower() == 'true'
+
+    if not client_id or not secret_key:
+        return jsonify({
+            'success': False,
+            'message': 'DOKU_CLIENT_ID atau DOKU_SECRET_KEY belum dikonfigurasi'
+        })
+
+    base_url = 'https://api.doku.com' if is_production else 'https://api-sandbox.doku.com'
+    request_target = '/checkout/v1/payment'
+
+    import uuid
+    request_id = str(uuid.uuid4())
+    request_timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    payload = {
+        'order': {
+            'amount': 1000,
+            'invoice_number': f'TEST-{int(datetime.now().timestamp())}',
+            'currency': 'IDR'
+        },
+        'payment': {'payment_due_date': 5},
+        'customer': {'name': 'Test', 'email': 'test@kasir.local'}
+    }
+
+    signature = doku_generate_signature(
+        client_id, secret_key, request_id, request_timestamp, request_target, payload
+    )
+
+    import json
+    headers = {
+        'Client-Id': client_id,
+        'Request-Id': request_id,
+        'Request-Timestamp': request_timestamp,
+        'Signature': signature,
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        resp = requests.post(
+            f'{base_url}{request_target}',
+            data=json.dumps(payload, separators=(',', ':')),
+            headers=headers,
+            timeout=10
+        )
+
+        if resp.status_code in (200, 201):
+            return jsonify({
+                'success': True,
+                'message': f'Koneksi DOKU berhasil! Mode: {"Production" if is_production else "Sandbox"}'
+            })
+        elif resp.status_code == 401:
+            return jsonify({'success': False, 'message': 'Autentikasi gagal. Periksa Client ID dan Secret Key.'})
+        else:
+            return jsonify({'success': False, 'message': f'HTTP {resp.status_code}: {resp.text[:200]}'})
+    except requests.exceptions.Timeout:
+        return jsonify({'success': False, 'message': 'Koneksi timeout'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})

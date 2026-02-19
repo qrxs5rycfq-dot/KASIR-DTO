@@ -58,6 +58,16 @@ class Config:
     
     # Application URL (for QR codes, kosongkan untuk auto-detect dari request)
     APP_URL = os.environ.get('APP_URL', '')
+    
+    # Duitku config
+    DUITKU_API_KEY = os.environ.get('DUITKU_API_KEY', '')
+    DUITKU_MERCHANT_CODE = os.environ.get('DUITKU_MERCHANT_CODE', '')
+    DUITKU_IS_PRODUCTION = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+    
+    # DOKU config
+    DOKU_CLIENT_ID = os.environ.get('DOKU_CLIENT_ID', '')
+    DOKU_SECRET_KEY = os.environ.get('DOKU_SECRET_KEY', '')
+    DOKU_IS_PRODUCTION = os.environ.get('DOKU_IS_PRODUCTION', 'false').lower() == 'true'
 
 class DevelopmentConfig(Config):
     DEBUG = True

@@ -1197,6 +1197,21 @@ def admin_payment_gateway():
     masked_tripay_api_key = tripay_api_key[:8] + '****' + tripay_api_key[-4:] if len(tripay_api_key) > 12 else ('****' if tripay_api_key else '')
     masked_tripay_private_key = tripay_private_key[:4] + '****' if len(tripay_private_key) > 4 else ('****' if tripay_private_key else '')
 
+    # Duitku config
+    duitku_api_key = os.environ.get('DUITKU_API_KEY', '')
+    duitku_merchant_code = os.environ.get('DUITKU_MERCHANT_CODE', '')
+    duitku_is_production = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+
+    masked_duitku_api_key = duitku_api_key[:8] + '****' + duitku_api_key[-4:] if len(duitku_api_key) > 12 else ('****' if duitku_api_key else '')
+
+    # DOKU config
+    doku_client_id = os.environ.get('DOKU_CLIENT_ID', '')
+    doku_secret_key = os.environ.get('DOKU_SECRET_KEY', '')
+    doku_is_production = os.environ.get('DOKU_IS_PRODUCTION', 'false').lower() == 'true'
+
+    masked_doku_client_id = doku_client_id[:8] + '****' + doku_client_id[-4:] if len(doku_client_id) > 12 else ('****' if doku_client_id else '')
+    masked_doku_secret_key = doku_secret_key[:4] + '****' if len(doku_secret_key) > 4 else ('****' if doku_secret_key else '')
+
     return render_template('admin/payment_gateway.html',
                          masked_server_key=masked_server_key,
                          masked_client_key=masked_client_key,
@@ -1214,6 +1229,14 @@ def admin_payment_gateway():
                          tripay_merchant_code=tripay_merchant_code,
                          tripay_is_production=tripay_is_production,
                          tripay_is_configured=bool(tripay_api_key and tripay_private_key and tripay_merchant_code),
+                         duitku_api_key=masked_duitku_api_key,
+                         duitku_merchant_code=duitku_merchant_code,
+                         duitku_is_production=duitku_is_production,
+                         duitku_is_configured=bool(duitku_api_key and duitku_merchant_code),
+                         doku_client_id=masked_doku_client_id,
+                         doku_secret_key=masked_doku_secret_key,
+                         doku_is_production=doku_is_production,
+                         doku_is_configured=bool(doku_client_id and doku_secret_key),
                          active_gateway=active_gateway,
                          active_page='admin_payment_gateway')
 
@@ -1225,8 +1248,8 @@ def api_set_active_gateway():
     """Toggle active payment gateway between midtrans and qris_bri"""
     data = request.json
     gateway = data.get('gateway', 'midtrans')
-    if gateway not in ('midtrans', 'qris_bri', 'tripay'):
+    if gateway not in ('midtrans', 'qris_bri', 'tripay', 'duitku', 'doku'):
         return jsonify({'success': False, 'message': 'Gateway tidak valid'}), 400
 
-    set_setting('active_payment_gateway', gateway, 'Active payment gateway (midtrans or qris_bri)')
+    set_setting('active_payment_gateway', gateway, 'Active payment gateway')
     return jsonify({'success': True, 'message': f'Payment gateway diubah ke {gateway.upper()}', 'active': gateway})
