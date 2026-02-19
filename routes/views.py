@@ -1125,8 +1125,9 @@ def payment_page(order_id):
             try:
                 import midtransclient
                 
+                is_prod_val = get_gateway_config('midtrans_is_production', 'MIDTRANS_IS_PRODUCTION')
                 snap = midtransclient.Snap(
-                    is_production=get_gateway_config('midtrans_is_production', 'MIDTRANS_IS_PRODUCTION').lower() == 'true',
+                    is_production=is_prod_val.lower() == 'true' if is_prod_val else current_app.config.get('MIDTRANS_IS_PRODUCTION', False),
                     server_key=get_gateway_config('midtrans_server_key', 'MIDTRANS_SERVER_KEY') or current_app.config.get('MIDTRANS_SERVER_KEY', ''),
                     client_key=get_gateway_config('midtrans_client_key', 'MIDTRANS_CLIENT_KEY') or current_app.config.get('MIDTRANS_CLIENT_KEY', '')
                 )
@@ -1156,11 +1157,18 @@ def payment_page(order_id):
             except Exception as e:
                 print(f"Error generating snap token: {e}")
     
+    # Get Midtrans client key for Snap.js (DB-first, config fallback)
+    midtrans_client_key = get_gateway_config('midtrans_client_key', 'MIDTRANS_CLIENT_KEY') or current_app.config.get('MIDTRANS_CLIENT_KEY', '')
+    midtrans_is_prod_val = get_gateway_config('midtrans_is_production', 'MIDTRANS_IS_PRODUCTION')
+    midtrans_is_production = midtrans_is_prod_val.lower() == 'true' if midtrans_is_prod_val else current_app.config.get('MIDTRANS_IS_PRODUCTION', False)
+    
     return render_template('payment.html', 
                          order=order, 
                          snap_token=snap_token or '',
                          auto_pay=bool(snap_token),
                          active_gateway=active_gateway,
+                         midtrans_client_key=midtrans_client_key,
+                         midtrans_is_production=midtrans_is_production,
                          config=current_app.config)
 
 

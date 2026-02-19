@@ -36,10 +36,10 @@
     
     <!-- Midtrans Snap (only load when needed) -->
     {% if active_gateway == 'midtrans' %}
-    {% if config.MIDTRANS_IS_PRODUCTION %}
-    <script src="https://app.midtrans.com/snap/snap.js" data-client-key="{{ config.MIDTRANS_CLIENT_KEY }}"></script>
+    {% if midtrans_is_production %}
+    <script src="https://app.midtrans.com/snap/snap.js" data-client-key="{{ midtrans_client_key }}"></script>
     {% else %}
-    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ config.MIDTRANS_CLIENT_KEY }}"></script>
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ midtrans_client_key }}"></script>
     {% endif %}
     {% endif %}
     
@@ -490,7 +490,6 @@
                 const data = await response.json();
                 
                 // Show status on whichever display is visible
-                const statusMsg = document.getElementById('qrisStatusMsg') || document.getElementById('redirectStatusMsg');
                 const visibleStatusMsg = document.querySelector('#qrisDisplay:not(.hidden) #qrisStatusMsg') 
                     || document.querySelector('#redirectDisplay:not(.hidden) #redirectStatusMsg');
                 
