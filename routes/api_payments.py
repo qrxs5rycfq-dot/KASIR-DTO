@@ -14,7 +14,7 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from models import db, Order, Payment
 from extensions import limiter, csrf
-from utils import utc_now, create_notification, role_required
+from utils import utc_now, create_notification, role_required, get_gateway_config
 
 api_payments = Blueprint('api_payments', __name__, url_prefix='')
 
@@ -259,10 +259,10 @@ def api_test_payment_gateway():
 
 def bri_get_access_token():
     """Get BRI API access token using OAuth2 client credentials with RSA signature"""
-    client_id = os.environ.get('BRI_CLIENT_ID', '')
-    client_secret = os.environ.get('BRI_CLIENT_SECRET', '')
-    private_key_path = os.environ.get('BRI_PRIVATE_KEY_PATH', '')
-    is_production = os.environ.get('BRI_IS_PRODUCTION', 'false').lower() == 'true'
+    client_id = get_gateway_config('bri_client_id', 'BRI_CLIENT_ID')
+    client_secret = get_gateway_config('bri_client_secret', 'BRI_CLIENT_SECRET')
+    private_key_path = get_gateway_config('bri_private_key_path', 'BRI_PRIVATE_KEY_PATH')
+    is_production = get_gateway_config('bri_is_production', 'BRI_IS_PRODUCTION').lower() == 'true'
     
     if not client_id or not client_secret:
         return None, 'BRI_CLIENT_ID atau BRI_CLIENT_SECRET belum dikonfigurasi'
@@ -330,9 +330,9 @@ def api_create_qris_bri():
     order_id = data.get('order_id')
     order = Order.query.get_or_404(order_id)
     
-    merchant_id = os.environ.get('BRI_MERCHANT_ID', '')
-    terminal_id = os.environ.get('BRI_TERMINAL_ID', '')
-    is_production = os.environ.get('BRI_IS_PRODUCTION', 'false').lower() == 'true'
+    merchant_id = get_gateway_config('bri_merchant_id', 'BRI_MERCHANT_ID')
+    terminal_id = get_gateway_config('bri_terminal_id', 'BRI_TERMINAL_ID')
+    is_production = get_gateway_config('bri_is_production', 'BRI_IS_PRODUCTION').lower() == 'true'
     
     if not merchant_id or not terminal_id:
         return jsonify({'success': False, 'error': 'BRI Merchant ID atau Terminal ID belum dikonfigurasi'}), 400
@@ -439,9 +439,9 @@ def api_check_qris_bri_status():
     if not order.payment or not order.payment.midtrans_transaction_id:
         return jsonify({'success': False, 'error': 'No QRIS transaction found'}), 400
     
-    merchant_id = os.environ.get('BRI_MERCHANT_ID', '')
-    terminal_id = os.environ.get('BRI_TERMINAL_ID', '')
-    is_production = os.environ.get('BRI_IS_PRODUCTION', 'false').lower() == 'true'
+    merchant_id = get_gateway_config('bri_merchant_id', 'BRI_MERCHANT_ID')
+    terminal_id = get_gateway_config('bri_terminal_id', 'BRI_TERMINAL_ID')
+    is_production = get_gateway_config('bri_is_production', 'BRI_IS_PRODUCTION').lower() == 'true'
     
     access_token, err = bri_get_access_token()
     if not access_token:
@@ -516,10 +516,10 @@ def api_test_bri_gateway():
 
 def tripay_create_transaction(order, payment_method_code):
     """Create a Tripay closed payment transaction"""
-    api_key = os.environ.get('TRIPAY_API_KEY', '')
-    private_key = os.environ.get('TRIPAY_PRIVATE_KEY', '')
-    merchant_code = os.environ.get('TRIPAY_MERCHANT_CODE', '')
-    is_production = os.environ.get('TRIPAY_IS_PRODUCTION', 'false').lower() == 'true'
+    api_key = get_gateway_config('tripay_api_key', 'TRIPAY_API_KEY')
+    private_key = get_gateway_config('tripay_private_key', 'TRIPAY_PRIVATE_KEY')
+    merchant_code = get_gateway_config('tripay_merchant_code', 'TRIPAY_MERCHANT_CODE')
+    is_production = get_gateway_config('tripay_is_production', 'TRIPAY_IS_PRODUCTION').lower() == 'true'
 
     if not api_key or not private_key or not merchant_code:
         return None, 'TRIPAY_API_KEY, TRIPAY_PRIVATE_KEY, atau TRIPAY_MERCHANT_CODE belum dikonfigurasi'
@@ -650,8 +650,8 @@ def api_check_tripay_status():
     if not order.payment or not order.payment.midtrans_transaction_id:
         return jsonify({'success': False, 'error': 'No Tripay transaction found'}), 400
 
-    api_key = os.environ.get('TRIPAY_API_KEY', '')
-    is_production = os.environ.get('TRIPAY_IS_PRODUCTION', 'false').lower() == 'true'
+    api_key = get_gateway_config('tripay_api_key', 'TRIPAY_API_KEY')
+    is_production = get_gateway_config('tripay_is_production', 'TRIPAY_IS_PRODUCTION').lower() == 'true'
     base_url = 'https://tripay.co.id/api' if is_production else 'https://tripay.co.id/api-sandbox'
 
     try:
@@ -699,7 +699,7 @@ def api_check_tripay_status():
 def api_tripay_callback():
     """Handle Tripay payment callback webhook"""
     try:
-        private_key = os.environ.get('TRIPAY_PRIVATE_KEY', '')
+        private_key = get_gateway_config('tripay_private_key', 'TRIPAY_PRIVATE_KEY')
         callback_signature = request.headers.get('X-Callback-Signature', '')
         raw_body = request.get_data(as_text=True)
 
@@ -756,8 +756,8 @@ def api_tripay_callback():
 @role_required('admin')
 def api_test_tripay_gateway():
     """Test Tripay API connection"""
-    api_key = os.environ.get('TRIPAY_API_KEY', '')
-    is_production = os.environ.get('TRIPAY_IS_PRODUCTION', 'false').lower() == 'true'
+    api_key = get_gateway_config('tripay_api_key', 'TRIPAY_API_KEY')
+    is_production = get_gateway_config('tripay_is_production', 'TRIPAY_IS_PRODUCTION').lower() == 'true'
 
     if not api_key:
         return jsonify({
@@ -797,9 +797,9 @@ def api_test_tripay_gateway():
 
 def duitku_create_invoice(order):
     """Create a Duitku invoice payment"""
-    api_key = os.environ.get('DUITKU_API_KEY', '')
-    merchant_code = os.environ.get('DUITKU_MERCHANT_CODE', '')
-    is_production = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+    api_key = get_gateway_config('duitku_api_key', 'DUITKU_API_KEY')
+    merchant_code = get_gateway_config('duitku_merchant_code', 'DUITKU_MERCHANT_CODE')
+    is_production = get_gateway_config('duitku_is_production', 'DUITKU_IS_PRODUCTION').lower() == 'true'
 
     if not api_key or not merchant_code:
         return None, 'DUITKU_API_KEY atau DUITKU_MERCHANT_CODE belum dikonfigurasi'
@@ -905,7 +905,7 @@ def api_create_duitku_payment():
 def api_duitku_callback():
     """Handle Duitku payment callback webhook"""
     try:
-        api_key = os.environ.get('DUITKU_API_KEY', '')
+        api_key = get_gateway_config('duitku_api_key', 'DUITKU_API_KEY')
         merchant_code = request.form.get('merchantCode', '')
         amount = request.form.get('amount', '')
         merchant_order_id = request.form.get('merchantOrderId', '')
@@ -965,9 +965,9 @@ def api_check_duitku_status():
     if not order.payment or not order.payment.midtrans_order_id:
         return jsonify({'success': False, 'error': 'No Duitku transaction found'}), 400
 
-    api_key = os.environ.get('DUITKU_API_KEY', '')
-    merchant_code = os.environ.get('DUITKU_MERCHANT_CODE', '')
-    is_production = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+    api_key = get_gateway_config('duitku_api_key', 'DUITKU_API_KEY')
+    merchant_code = get_gateway_config('duitku_merchant_code', 'DUITKU_MERCHANT_CODE')
+    is_production = get_gateway_config('duitku_is_production', 'DUITKU_IS_PRODUCTION').lower() == 'true'
     base_url = 'https://api-prod.duitku.com' if is_production else 'https://api-sandbox.duitku.com'
 
     merchant_order_id = order.payment.midtrans_order_id
@@ -1018,9 +1018,9 @@ def api_check_duitku_status():
 @role_required('admin')
 def api_test_duitku_gateway():
     """Test Duitku API connection"""
-    api_key = os.environ.get('DUITKU_API_KEY', '')
-    merchant_code = os.environ.get('DUITKU_MERCHANT_CODE', '')
-    is_production = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+    api_key = get_gateway_config('duitku_api_key', 'DUITKU_API_KEY')
+    merchant_code = get_gateway_config('duitku_merchant_code', 'DUITKU_MERCHANT_CODE')
+    is_production = get_gateway_config('duitku_is_production', 'DUITKU_IS_PRODUCTION').lower() == 'true'
 
     if not api_key or not merchant_code:
         return jsonify({
@@ -1111,9 +1111,9 @@ def api_create_doku_payment():
         order_id = data.get('order_id')
         order = Order.query.get_or_404(order_id)
 
-        client_id = os.environ.get('DOKU_CLIENT_ID', '')
-        secret_key = os.environ.get('DOKU_SECRET_KEY', '')
-        is_production = os.environ.get('DOKU_IS_PRODUCTION', 'false').lower() == 'true'
+        client_id = get_gateway_config('doku_client_id', 'DOKU_CLIENT_ID')
+        secret_key = get_gateway_config('doku_secret_key', 'DOKU_SECRET_KEY')
+        is_production = get_gateway_config('doku_is_production', 'DOKU_IS_PRODUCTION').lower() == 'true'
 
         if not client_id or not secret_key:
             return jsonify({'success': False, 'error': 'DOKU_CLIENT_ID atau DOKU_SECRET_KEY belum dikonfigurasi'}), 400
@@ -1219,8 +1219,8 @@ def api_create_doku_payment():
 def api_doku_callback():
     """Handle DOKU payment notification webhook"""
     try:
-        client_id = os.environ.get('DOKU_CLIENT_ID', '')
-        secret_key = os.environ.get('DOKU_SECRET_KEY', '')
+        client_id = get_gateway_config('doku_client_id', 'DOKU_CLIENT_ID')
+        secret_key = get_gateway_config('doku_secret_key', 'DOKU_SECRET_KEY')
 
         # Verify signature from headers
         received_signature = request.headers.get('Signature', '')
@@ -1317,9 +1317,9 @@ def api_check_doku_status():
 @role_required('admin')
 def api_test_doku_gateway():
     """Test DOKU API connection by making a small checkout request"""
-    client_id = os.environ.get('DOKU_CLIENT_ID', '')
-    secret_key = os.environ.get('DOKU_SECRET_KEY', '')
-    is_production = os.environ.get('DOKU_IS_PRODUCTION', 'false').lower() == 'true'
+    client_id = get_gateway_config('doku_client_id', 'DOKU_CLIENT_ID')
+    secret_key = get_gateway_config('doku_secret_key', 'DOKU_SECRET_KEY')
+    is_production = get_gateway_config('doku_is_production', 'DOKU_IS_PRODUCTION').lower() == 'true'
 
     if not client_id or not secret_key:
         return jsonify({

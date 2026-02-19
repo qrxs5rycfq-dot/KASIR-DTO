@@ -155,6 +155,14 @@ def get_setting(key, default=None):
     return s.value if s else default
 
 
+def get_gateway_config(key, env_key=None):
+    """Get payment gateway config: DB setting first, then env var fallback."""
+    db_val = get_setting(f'pg_{key}')
+    if db_val:
+        return db_val
+    return os.environ.get(env_key or key.upper(), '')
+
+
 def set_setting(key, value, description=None):
     from models import Setting
     s = Setting.query.filter_by(key=key).first()

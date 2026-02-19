@@ -13,7 +13,7 @@ from models import (
 from utils import (
     role_required, permission_required,
     get_user_branch_id, get_default_branch_id, branch_filter,
-    utc_now, format_currency, get_setting
+    utc_now, format_currency, get_setting, get_gateway_config
 )
 
 views_bp = Blueprint('views', __name__, url_prefix='')
@@ -1126,9 +1126,9 @@ def payment_page(order_id):
                 import midtransclient
                 
                 snap = midtransclient.Snap(
-                    is_production=current_app.config.get('MIDTRANS_IS_PRODUCTION', False),
-                    server_key=current_app.config.get('MIDTRANS_SERVER_KEY', ''),
-                    client_key=current_app.config.get('MIDTRANS_CLIENT_KEY', '')
+                    is_production=get_gateway_config('midtrans_is_production', 'MIDTRANS_IS_PRODUCTION').lower() == 'true',
+                    server_key=get_gateway_config('midtrans_server_key', 'MIDTRANS_SERVER_KEY') or current_app.config.get('MIDTRANS_SERVER_KEY', ''),
+                    client_key=get_gateway_config('midtrans_client_key', 'MIDTRANS_CLIENT_KEY') or current_app.config.get('MIDTRANS_CLIENT_KEY', '')
                 )
                 
                 param = {

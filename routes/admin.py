@@ -19,7 +19,7 @@ from models import (
 from utils import (
     role_required, allowed_file, save_uploaded_image,
     get_user_branch_id, get_default_branch_id, branch_filter,
-    utc_now, get_branch_stock, get_setting, set_setting
+    utc_now, get_branch_stock, get_setting, set_setting, get_gateway_config
 )
 
 admin_bp = Blueprint('admin', __name__, url_prefix='')
@@ -1166,21 +1166,22 @@ def admin_integrations():
 @role_required('admin')
 def admin_payment_gateway():
     """Payment gateway settings page with Midtrans & BRI QRIS"""
-    # Midtrans config
-    server_key = current_app.config.get('MIDTRANS_SERVER_KEY', '')
-    client_key = current_app.config.get('MIDTRANS_CLIENT_KEY', '')
-    is_production = current_app.config.get('MIDTRANS_IS_PRODUCTION', False)
+    # Midtrans config (DB-first, env fallback)
+    server_key = get_gateway_config('midtrans_server_key', 'MIDTRANS_SERVER_KEY') or current_app.config.get('MIDTRANS_SERVER_KEY', '')
+    client_key = get_gateway_config('midtrans_client_key', 'MIDTRANS_CLIENT_KEY') or current_app.config.get('MIDTRANS_CLIENT_KEY', '')
+    midtrans_is_prod = get_gateway_config('midtrans_is_production', 'MIDTRANS_IS_PRODUCTION')
+    is_production = midtrans_is_prod == 'true' if midtrans_is_prod else current_app.config.get('MIDTRANS_IS_PRODUCTION', False)
 
-    masked_server_key = server_key[:8] + '****' + server_key[-4:] if len(server_key) > 12 else '****'
-    masked_client_key = client_key[:8] + '****' + client_key[-4:] if len(client_key) > 12 else '****'
+    masked_server_key = server_key[:8] + '****' + server_key[-4:] if len(server_key) > 12 else ('****' if server_key else '')
+    masked_client_key = client_key[:8] + '****' + client_key[-4:] if len(client_key) > 12 else ('****' if client_key else '')
 
     # BRI QRIS config
-    bri_client_id = os.environ.get('BRI_CLIENT_ID', '')
-    bri_client_secret = os.environ.get('BRI_CLIENT_SECRET', '')
-    bri_merchant_id = os.environ.get('BRI_MERCHANT_ID', '')
-    bri_terminal_id = os.environ.get('BRI_TERMINAL_ID', '')
-    bri_is_production = os.environ.get('BRI_IS_PRODUCTION', 'false').lower() == 'true'
-    bri_private_key_path = os.environ.get('BRI_PRIVATE_KEY_PATH', '')
+    bri_client_id = get_gateway_config('bri_client_id', 'BRI_CLIENT_ID')
+    bri_client_secret = get_gateway_config('bri_client_secret', 'BRI_CLIENT_SECRET')
+    bri_merchant_id = get_gateway_config('bri_merchant_id', 'BRI_MERCHANT_ID')
+    bri_terminal_id = get_gateway_config('bri_terminal_id', 'BRI_TERMINAL_ID')
+    bri_is_production = get_gateway_config('bri_is_production', 'BRI_IS_PRODUCTION') == 'true'
+    bri_private_key_path = get_gateway_config('bri_private_key_path', 'BRI_PRIVATE_KEY_PATH')
 
     masked_bri_client_id = bri_client_id[:8] + '****' + bri_client_id[-4:] if len(bri_client_id) > 12 else ('****' if bri_client_id else '')
     masked_bri_secret = bri_client_secret[:4] + '****' if len(bri_client_secret) > 4 else ('****' if bri_client_secret else '')
@@ -1189,25 +1190,25 @@ def admin_payment_gateway():
     active_gateway = get_setting('active_payment_gateway', 'midtrans')
 
     # Tripay config
-    tripay_api_key = os.environ.get('TRIPAY_API_KEY', '')
-    tripay_private_key = os.environ.get('TRIPAY_PRIVATE_KEY', '')
-    tripay_merchant_code = os.environ.get('TRIPAY_MERCHANT_CODE', '')
-    tripay_is_production = os.environ.get('TRIPAY_IS_PRODUCTION', 'false').lower() == 'true'
+    tripay_api_key = get_gateway_config('tripay_api_key', 'TRIPAY_API_KEY')
+    tripay_private_key = get_gateway_config('tripay_private_key', 'TRIPAY_PRIVATE_KEY')
+    tripay_merchant_code = get_gateway_config('tripay_merchant_code', 'TRIPAY_MERCHANT_CODE')
+    tripay_is_production = get_gateway_config('tripay_is_production', 'TRIPAY_IS_PRODUCTION') == 'true'
 
     masked_tripay_api_key = tripay_api_key[:8] + '****' + tripay_api_key[-4:] if len(tripay_api_key) > 12 else ('****' if tripay_api_key else '')
     masked_tripay_private_key = tripay_private_key[:4] + '****' if len(tripay_private_key) > 4 else ('****' if tripay_private_key else '')
 
     # Duitku config
-    duitku_api_key = os.environ.get('DUITKU_API_KEY', '')
-    duitku_merchant_code = os.environ.get('DUITKU_MERCHANT_CODE', '')
-    duitku_is_production = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+    duitku_api_key = get_gateway_config('duitku_api_key', 'DUITKU_API_KEY')
+    duitku_merchant_code = get_gateway_config('duitku_merchant_code', 'DUITKU_MERCHANT_CODE')
+    duitku_is_production = get_gateway_config('duitku_is_production', 'DUITKU_IS_PRODUCTION') == 'true'
 
     masked_duitku_api_key = duitku_api_key[:8] + '****' + duitku_api_key[-4:] if len(duitku_api_key) > 12 else ('****' if duitku_api_key else '')
 
     # DOKU config
-    doku_client_id = os.environ.get('DOKU_CLIENT_ID', '')
-    doku_secret_key = os.environ.get('DOKU_SECRET_KEY', '')
-    doku_is_production = os.environ.get('DOKU_IS_PRODUCTION', 'false').lower() == 'true'
+    doku_client_id = get_gateway_config('doku_client_id', 'DOKU_CLIENT_ID')
+    doku_secret_key = get_gateway_config('doku_secret_key', 'DOKU_SECRET_KEY')
+    doku_is_production = get_gateway_config('doku_is_production', 'DOKU_IS_PRODUCTION') == 'true'
 
     masked_doku_client_id = doku_client_id[:8] + '****' + doku_client_id[-4:] if len(doku_client_id) > 12 else ('****' if doku_client_id else '')
     masked_doku_secret_key = doku_secret_key[:4] + '****' if len(doku_secret_key) > 4 else ('****' if doku_secret_key else '')
@@ -1253,3 +1254,37 @@ def api_set_active_gateway():
 
     set_setting('active_payment_gateway', gateway, 'Active payment gateway')
     return jsonify({'success': True, 'message': f'Payment gateway diubah ke {gateway.upper()}', 'active': gateway})
+
+
+@admin_bp.route('/api/payment-gateway/save-config', methods=['POST'])
+@login_required
+@role_required('admin')
+def api_save_gateway_config():
+    """Save payment gateway credentials to database"""
+    data = request.json
+    gateway = data.get('gateway', '')
+
+    # Define allowed config keys per gateway
+    gateway_fields = {
+        'midtrans': ['midtrans_server_key', 'midtrans_client_key', 'midtrans_is_production'],
+        'qris_bri': ['bri_client_id', 'bri_client_secret', 'bri_merchant_id', 'bri_terminal_id', 'bri_private_key_path', 'bri_is_production'],
+        'tripay': ['tripay_api_key', 'tripay_private_key', 'tripay_merchant_code', 'tripay_is_production'],
+        'duitku': ['duitku_api_key', 'duitku_merchant_code', 'duitku_is_production'],
+        'doku': ['doku_client_id', 'doku_secret_key', 'doku_is_production'],
+    }
+
+    if gateway not in gateway_fields:
+        return jsonify({'success': False, 'message': 'Gateway tidak valid'}), 400
+
+    config = data.get('config', {})
+    saved_count = 0
+    for field in gateway_fields[gateway]:
+        if field in config:
+            value = config[field].strip() if isinstance(config[field], str) else str(config[field])
+            # Skip masked/placeholder values
+            if '****' in value or value == '(belum diisi)':
+                continue
+            set_setting(f'pg_{field}', value, f'{gateway} config: {field}')
+            saved_count += 1
+
+    return jsonify({'success': True, 'message': f'Konfigurasi {gateway.upper()} berhasil disimpan ({saved_count} field)', 'saved': saved_count})
