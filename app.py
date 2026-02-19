@@ -132,139 +132,142 @@ register_socket_handlers(socketio)
 
 # ==================== Database Initialization ====================
 
-def run_migrations():
-    """Run database migrations for existing databases"""
+def _get_column_sql(column, dialect_name):
+    """Convert a SQLAlchemy column to an ALTER TABLE ADD COLUMN SQL fragment."""
+    from sqlalchemy import Integer, String, Float, Boolean, DateTime, Text, Date
+    from sqlalchemy.types import VARCHAR, TEXT as SA_TEXT
+
+    col_type = column.type
+    if dialect_name == 'sqlite':
+        if isinstance(col_type, Boolean):
+            sql_type = 'BOOLEAN'
+        elif isinstance(col_type, Integer):
+            sql_type = 'INTEGER'
+        elif isinstance(col_type, Float):
+            sql_type = 'REAL'
+        elif isinstance(col_type, (DateTime, Date)):
+            sql_type = 'TIMESTAMP'
+        elif isinstance(col_type, Text):
+            sql_type = 'TEXT'
+        elif isinstance(col_type, String):
+            length = getattr(col_type, 'length', None)
+            sql_type = f'VARCHAR({length})' if length else 'TEXT'
+        else:
+            sql_type = 'TEXT'
+    else:
+        if isinstance(col_type, Boolean):
+            sql_type = 'TINYINT(1)'
+        elif isinstance(col_type, Integer):
+            sql_type = 'INTEGER'
+        elif isinstance(col_type, Float):
+            sql_type = 'DOUBLE'
+        elif isinstance(col_type, DateTime):
+            sql_type = 'DATETIME'
+        elif isinstance(col_type, Date):
+            sql_type = 'DATE'
+        elif isinstance(col_type, Text):
+            sql_type = 'TEXT'
+        elif isinstance(col_type, String):
+            length = getattr(col_type, 'length', None) or 255
+            sql_type = f'VARCHAR({length})'
+        else:
+            sql_type = 'VARCHAR(255)'
+
+    default_clause = ''
+    if column.default is not None:
+        val = column.default.arg if hasattr(column.default, 'arg') else None
+        if val is not None and not callable(val):
+            if isinstance(val, bool):
+                default_clause = f" DEFAULT {1 if val else 0}"
+            elif isinstance(val, (int, float)):
+                default_clause = f" DEFAULT {val}"
+            elif isinstance(val, str):
+                safe_val = val.replace("'", "''")
+                default_clause = f" DEFAULT '{safe_val}'"
+
+    return f"{column.name} {sql_type}{default_clause}"
+
+
+def auto_migrate():
+    """Automatically add missing tables and columns to the database.
+    
+    Compares SQLAlchemy model definitions with the actual database schema.
+    Only ADDs missing columns/tables — never drops or modifies existing ones.
+    Existing data is always preserved.
+    """
     from sqlalchemy import inspect, text
-    
+
     inspector = inspect(db.engine)
-    
-    # Check if payments table exists and add snap_token column if missing
-    if 'payments' in inspector.get_table_names():
-        columns = [col['name'] for col in inspector.get_columns('payments')]
-        if 'snap_token' not in columns:
-            with db.engine.connect() as conn:
-                conn.execute(text('ALTER TABLE payments ADD COLUMN snap_token VARCHAR(255)'))
-                conn.commit()
-            print("Added snap_token column to payments table")
-    
-    # Check if order_items table exists and add item_status column if missing
-    if 'order_items' in inspector.get_table_names():
-        columns = [col['name'] for col in inspector.get_columns('order_items')]
-        if 'item_status' not in columns:
-            with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE order_items ADD COLUMN item_status VARCHAR(20) DEFAULT 'pending'"))
-                conn.commit()
-            print("Added item_status column to order_items table")
-    
-    # Check if users table exists and add printer columns if missing
-    if 'users' in inspector.get_table_names():
-        columns = [col['name'] for col in inspector.get_columns('users')]
-        if 'printer_name' not in columns:
-            with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE users ADD COLUMN printer_name VARCHAR(100)"))
-                conn.commit()
-            print("Added printer_name column to users table")
-        if 'printer_id' not in columns:
-            with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE users ADD COLUMN printer_id VARCHAR(100)"))
-                conn.commit()
-            print("Added printer_id column to users table")
-        if 'force_password_change' not in columns:
-            with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE users ADD COLUMN force_password_change BOOLEAN DEFAULT 0"))
-                conn.commit()
-            print("Added force_password_change column to users table")
-    
-    # Check if cart table exists (new feature)
-    if 'cart' not in inspector.get_table_names():
-        # db.create_all will handle this
-        pass
-    
-    if 'cart_item' not in inspector.get_table_names():
-        # db.create_all will handle this
-        pass
-    
-    # Add branch_id columns to existing tables for multi-branch support
-    branch_tables = {
-        'users': 'branch_id',
-        'categories': 'branch_id',
-        'menu_items': 'branch_id',
-        'tables': 'branch_id',
-        'orders': 'branch_id',
-        'carts': 'branch_id',
-        'discounts': 'branch_id',
-        'incomes': 'branch_id',
-        'expenses': 'branch_id',
-        'cashier_shifts': 'branch_id',
-        'notifications': 'branch_id',
-        'pending_prints': 'branch_id',
-    }
-    for tbl_name, col_name in branch_tables.items():
-        if tbl_name in inspector.get_table_names():
-            columns = [col['name'] for col in inspector.get_columns(tbl_name)]
-            if col_name not in columns:
-                with db.engine.connect() as conn:
-                    conn.execute(text(f"ALTER TABLE {tbl_name} ADD COLUMN {col_name} INTEGER REFERENCES branches(id)"))
-                    conn.commit()
-                print(f"Added {col_name} column to {tbl_name} table")
-    
-    # Add source column to orders table for tracking order origin
-    if 'orders' in inspector.get_table_names():
-        columns = [col['name'] for col in inspector.get_columns('orders')]
-        if 'source' not in columns:
-            with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE orders ADD COLUMN source VARCHAR(30) DEFAULT 'pos'"))
-                conn.commit()
-            print("Added source column to orders table")
-    
-    # Remove unique constraint on tables.number if it exists (now scoped per branch)
-    if 'tables' in inspector.get_table_names():
-        try:
-            with db.engine.connect() as conn:
-                # SQLite doesn't support DROP CONSTRAINT directly, but create_all handles new schema
-                pass
-        except Exception:
-            pass
-    
-    # Add city_id and brand_id columns to branches table for multi-outlet hierarchy
-    table_names = inspector.get_table_names()
-    if 'branches' in table_names and 'cities' in table_names and 'brands' in table_names:
-        columns = [col['name'] for col in inspector.get_columns('branches')]
-        if 'city_id' not in columns:
-            with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE branches ADD COLUMN city_id INTEGER REFERENCES cities(id)"))
-                conn.commit()
-            print("Added city_id column to branches table")
-        if 'brand_id' not in columns:
-            with db.engine.connect() as conn:
-                conn.execute(text("ALTER TABLE branches ADD COLUMN brand_id INTEGER REFERENCES brands(id)"))
-                conn.commit()
-            print("Added brand_id column to branches table")
-    
-    # Fix legacy data: assign NULL branch_id records to Pusat branch
-    if 'branches' in table_names:
-        # Table names are from a hardcoded allowlist (not user input), safe for f-string
-        allowed_tables = {'orders', 'carts', 'expenses', 'cashier_shifts', 'pending_prints', 'notifications', 'discounts', 'incomes'}
+    dialect_name = db.engine.dialect.name
+    db_tables = set(inspector.get_table_names())
+    added_count = 0
+
+    for table_name, table_obj in db.metadata.tables.items():
+        if table_name not in db_tables:
+            continue
+
+        db_columns = {col['name'] for col in inspector.get_columns(table_name)}
+        model_columns = [col for col in table_obj.columns if col.name not in db_columns]
+
+        if not model_columns:
+            continue
+
         with db.engine.connect() as conn:
-            result = conn.execute(text("SELECT id FROM branches WHERE code = 'PUSAT' LIMIT 1"))
-            row = result.fetchone()
-            if row:
-                pusat_id = row[0]
-                for tbl in allowed_tables:
-                    if tbl in table_names:
-                        cols = [c['name'] for c in inspector.get_columns(tbl)]
-                        if 'branch_id' in cols:
-                            result = conn.execute(text(f"UPDATE {tbl} SET branch_id = :bid WHERE branch_id IS NULL"), {'bid': pusat_id})
-                            if result.rowcount > 0:
-                                print(f"Assigned {result.rowcount} {tbl} records with NULL branch_id to Pusat branch")
-                conn.commit()
+            for col in model_columns:
+                col_sql = _get_column_sql(col, dialect_name)
+                stmt = f"ALTER TABLE {table_name} ADD COLUMN {col_sql}"
+                try:
+                    conn.execute(text(stmt))
+                    added_count += 1
+                    print(f"  ✅ {table_name}.{col.name}")
+                except Exception as e:
+                    print(f"  ⚠️ Skipped {table_name}.{col.name}: {e}")
+            conn.commit()
+
+    if added_count > 0:
+        print(f"🔄 Auto-migrate: added {added_count} new column(s)")
+    else:
+        print("✅ Database schema is up to date")
+
+
+def fix_legacy_data():
+    """Fix legacy data: assign NULL branch_id records to Pusat branch."""
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(db.engine)
+    table_names = set(inspector.get_table_names())
+
+    if 'branches' not in table_names:
+        return
+
+    allowed_tables = {'orders', 'carts', 'expenses', 'cashier_shifts',
+                      'pending_prints', 'notifications', 'discounts', 'incomes'}
+    with db.engine.connect() as conn:
+        result = conn.execute(text("SELECT id FROM branches WHERE code = 'PUSAT' LIMIT 1"))
+        row = result.fetchone()
+        if row:
+            pusat_id = row[0]
+            for tbl in allowed_tables:
+                if tbl in table_names:
+                    cols = {c['name'] for c in inspector.get_columns(tbl)}
+                    if 'branch_id' in cols:
+                        result = conn.execute(
+                            text(f"UPDATE {tbl} SET branch_id = :bid WHERE branch_id IS NULL"),
+                            {'bid': pusat_id}
+                        )
+                        if result.rowcount > 0:
+                            print(f"  Assigned {result.rowcount} {tbl} records to Pusat branch")
+            conn.commit()
 
 def init_db():
     with app.app_context():
         db.create_all()
         
-        # Run migrations for existing databases
-        run_migrations()
+        # Auto-migrate: add any missing columns to existing tables
+        auto_migrate()
+        
+        # Fix legacy data
+        fix_legacy_data()
         
         # Create default permissions
         permissions_data = [
