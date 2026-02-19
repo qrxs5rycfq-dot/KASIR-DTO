@@ -34,11 +34,13 @@
         }
     </script>
     
-    <!-- Midtrans Snap -->
+    <!-- Midtrans Snap (only load when needed) -->
+    {% if active_gateway == 'midtrans' %}
     {% if config.MIDTRANS_IS_PRODUCTION %}
     <script src="https://app.midtrans.com/snap/snap.js" data-client-key="{{ config.MIDTRANS_CLIENT_KEY }}"></script>
     {% else %}
     <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="{{ config.MIDTRANS_CLIENT_KEY }}"></script>
+    {% endif %}
     {% endif %}
     
     <style>
@@ -148,8 +150,18 @@
                     </div>
                 </div>
                 
-                <!-- Pay Button -->
-                {% if active_gateway == 'qris_bri' %}
+                <!-- Pay Button - Dynamic per gateway -->
+                {% if active_gateway == 'midtrans' %}
+                <button id="payButton" onclick="openMidtransPayment()" 
+                        class="w-full py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-xl 
+                               hover:from-primary-600 hover:to-primary-700 transition-all duration-200 
+                               flex items-center justify-center space-x-2 pulse-animation">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                    </svg>
+                    <span>Bayar dengan Midtrans</span>
+                </button>
+                {% elif active_gateway == 'qris_bri' %}
                 <button id="payButton" onclick="openBriQrisPayment()" 
                         class="w-full py-4 bg-gradient-to-r from-orange-500 to-blue-600 text-white font-semibold rounded-xl 
                                hover:from-orange-600 hover:to-blue-700 transition-all duration-200 
@@ -159,31 +171,73 @@
                     </svg>
                     <span>Bayar dengan QRIS BRI</span>
                 </button>
+                {% elif active_gateway == 'tripay' %}
+                <button id="payButton" onclick="openTripayPayment()" 
+                        class="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl 
+                               hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 
+                               flex items-center justify-center space-x-2 pulse-animation">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                    </svg>
+                    <span>Bayar dengan Tripay</span>
+                </button>
+                {% elif active_gateway == 'duitku' %}
+                <button id="payButton" onclick="openDuitkuPayment()" 
+                        class="w-full py-4 bg-gradient-to-r from-green-500 to-teal-600 text-white font-semibold rounded-xl 
+                               hover:from-green-600 hover:to-teal-700 transition-all duration-200 
+                               flex items-center justify-center space-x-2 pulse-animation">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                    </svg>
+                    <span>Bayar dengan Duitku</span>
+                </button>
+                {% elif active_gateway == 'doku' %}
+                <button id="payButton" onclick="openDokuPayment()" 
+                        class="w-full py-4 bg-gradient-to-r from-red-500 to-pink-600 text-white font-semibold rounded-xl 
+                               hover:from-red-600 hover:to-pink-700 transition-all duration-200 
+                               flex items-center justify-center space-x-2 pulse-animation">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                    </svg>
+                    <span>Bayar dengan DOKU</span>
+                </button>
+                {% endif %}
                 
-                <!-- QRIS QR Code Display -->
+                <!-- QR Code Display (for QRIS BRI, Tripay QRIS) -->
                 <div id="qrisDisplay" class="hidden mt-4">
                     <div class="text-center p-6 bg-white rounded-2xl">
                         <p class="text-gray-800 font-semibold mb-3">Scan QR Code untuk Bayar</p>
                         <img id="qrisImage" src="" alt="QRIS QR Code" class="mx-auto w-64 h-64">
                         <p class="text-gray-500 text-sm mt-3">Gunakan aplikasi e-wallet atau mobile banking</p>
                     </div>
-                    <button onclick="checkBriQrisStatus()" id="checkStatusBtn"
+                    <button onclick="checkPaymentStatus()" id="checkStatusBtn"
                             class="w-full mt-3 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors">
-                        <i class="fas fa-sync-alt mr-2"></i> Cek Status Pembayaran
+                        Cek Status Pembayaran
                     </button>
                     <div id="qrisStatusMsg" class="hidden mt-2 p-3 rounded-lg text-sm text-center"></div>
                 </div>
-                {% else %}
-                <button id="payButton" onclick="openPayment()" 
-                        class="w-full py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-xl 
-                               hover:from-primary-600 hover:to-primary-700 transition-all duration-200 
-                               flex items-center justify-center space-x-2 pulse-animation">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                    </svg>
-                    <span>Bayar Sekarang</span>
-                </button>
-                {% endif %}
+                
+                <!-- Redirect Payment Display (for Tripay, Duitku, DOKU redirect) -->
+                <div id="redirectDisplay" class="hidden mt-4">
+                    <div class="text-center p-6 glass-card rounded-2xl">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-500/20 text-yellow-400 mb-4">
+                            <svg class="w-8 h-8 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-white font-semibold mb-2">Menunggu Pembayaran</p>
+                        <p class="text-gray-400 text-sm mb-4">Selesaikan pembayaran di halaman yang terbuka</p>
+                        <a id="paymentLink" href="#" target="_blank" rel="noopener"
+                           class="inline-block px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors text-sm">
+                            Buka Halaman Pembayaran
+                        </a>
+                    </div>
+                    <button onclick="checkPaymentStatus()" id="checkRedirectStatusBtn"
+                            class="w-full mt-3 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors">
+                        Cek Status Pembayaran
+                    </button>
+                    <div id="redirectStatusMsg" class="hidden mt-2 p-3 rounded-lg text-sm text-center"></div>
+                </div>
                 
                 <!-- Back Button (hidden initially) -->
                 <a id="backButton" href="{{ url_for('views.orders') }}" 
@@ -196,11 +250,14 @@
             <!-- Footer -->
             <div class="text-center mt-6 text-gray-500 text-sm">
                 <p>Pembayaran aman dengan</p>
-                {% if active_gateway == 'qris_bri' %}
-                <p class="font-semibold text-gray-400">QRIS BRI Payment Gateway</p>
-                {% else %}
-                <p class="font-semibold text-gray-400">Midtrans Payment Gateway</p>
-                {% endif %}
+                {% set gateway_names = {
+                    'midtrans': 'Midtrans',
+                    'qris_bri': 'QRIS BRI',
+                    'tripay': 'Tripay',
+                    'duitku': 'Duitku',
+                    'doku': 'DOKU'
+                } %}
+                <p class="font-semibold text-gray-400">{{ gateway_names.get(active_gateway, active_gateway) }} Payment Gateway</p>
             </div>
         </div>
     </div>
@@ -208,6 +265,7 @@
     <!-- PrinterManager is loaded from base.html - no need to load again -->
     
     <script>
+        const activeGateway = "{{ active_gateway }}";
         const snapToken = "{{ snap_token }}";
         const orderId = {{ order.id }};
         
@@ -267,12 +325,10 @@
             FEED_LINES: (n) => [0x1B, 0x64, n],
         };
         
-        // Format number with thousand separator
         function formatNumber(num) {
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
         }
         
-        // Build receipt commands
         function buildReceiptCommands(order, copyNum, totalCopies) {
             const encoder = new TextEncoder();
             let commands = [];
@@ -327,7 +383,6 @@
             return commands;
         }
         
-        // Save receipt to server queue for Printer Station
         async function saveReceiptToServerQueue(order, copies = 3) {
             try {
                 for (let i = 1; i <= copies; i++) {
@@ -350,42 +405,9 @@
             }
         }
         
-        function openPayment() {
-            if (!snapToken) {
-                showStatus('error');
-                return;
-            }
-            
-            snap.pay(snapToken, {
-                onSuccess: function(result) {
-                    console.log('Payment success:', result);
-                    updatePaymentStatus('paid', result);
-                    showStatus('success');
-                    
-                    // Print jobs sudah dibuat oleh server via create_print_job()
-                    // Tidak perlu memanggil saveReceiptToServerQueue() lagi agar tidak duplikat
-                    console.log('Payment completed, receipts already queued by server');
-                    
-                    // Redirect after a short delay
-                    setTimeout(() => {
-                        window.location.href = "{{ url_for('views.orders') }}";
-                    }, 3000);
-                },
-                onPending: function(result) {
-                    console.log('Payment pending:', result);
-                    updatePaymentStatus('pending', result);
-                    showStatus('pending');
-                },
-                onError: function(result) {
-                    console.log('Payment error:', result);
-                    updatePaymentStatus('failed', result);
-                    showStatus('error');
-                },
-                onClose: function() {
-                    console.log('Payment popup closed');
-                }
-            });
-        }
+        // ==========================================
+        // Status Display Functions
+        // ==========================================
         
         function updatePaymentStatus(status, result) {
             fetch(`/api/payment/${orderId}/status`, {
@@ -396,7 +418,8 @@
         }
         
         function showStatus(status) {
-            document.getElementById('payButton').classList.add('hidden');
+            const payBtn = document.getElementById('payButton');
+            if (payBtn) payBtn.classList.add('hidden');
             document.getElementById('statusDisplay').classList.remove('hidden');
             document.getElementById('backButton').classList.remove('hidden');
             
@@ -409,20 +432,132 @@
             }
         }
         
-        // Auto-open payment if snap token exists
-        {% if auto_pay and active_gateway != 'qris_bri' %}
-        window.onload = function() {
-            setTimeout(openPayment, 500);
-        };
-        {% endif %}
+        function onPaymentSuccess() {
+            showStatus('success');
+            saveReceiptToServerQueue(orderData, 3);
+            setTimeout(() => {
+                window.location.href = "{{ url_for('views.orders') }}";
+            }, 3000);
+        }
         
-        // BRI QRIS Payment functions
-        let qrisPollingInterval = null;
+        function setButtonLoading(btn, loading) {
+            if (loading) {
+                btn.disabled = true;
+                btn.innerHTML = '<svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Memproses...';
+            }
+        }
+        
+        // ==========================================
+        // Polling for status (shared by gateways)
+        // ==========================================
+        
+        let pollingInterval = null;
+        
+        function startPolling() {
+            pollingInterval = setInterval(checkPaymentStatus, 5000);
+        }
+        
+        function stopPolling() {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        }
+        
+        async function checkPaymentStatus() {
+            const statusEndpoints = {
+                'qris_bri': '/api/payment/qris-bri/status',
+                'tripay': '/api/payment/tripay/status',
+                'duitku': '/api/payment/duitku/status',
+                'doku': '/api/payment/doku/status'
+            };
+            
+            const endpoint = statusEndpoints[activeGateway];
+            if (!endpoint) return;
+            
+            // Update all check buttons
+            document.querySelectorAll('#checkStatusBtn, #checkRedirectStatusBtn').forEach(btn => {
+                if (btn) btn.innerHTML = '<svg class="w-4 h-4 inline animate-spin mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Checking...';
+            });
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+                
+                const data = await response.json();
+                
+                // Show status on whichever display is visible
+                const statusMsg = document.getElementById('qrisStatusMsg') || document.getElementById('redirectStatusMsg');
+                const visibleStatusMsg = document.querySelector('#qrisDisplay:not(.hidden) #qrisStatusMsg') 
+                    || document.querySelector('#redirectDisplay:not(.hidden) #redirectStatusMsg');
+                
+                if (data.success && data.status === 'paid') {
+                    stopPolling();
+                    
+                    if (visibleStatusMsg) {
+                        visibleStatusMsg.classList.remove('hidden');
+                        visibleStatusMsg.className = 'mt-2 p-3 rounded-lg text-sm text-center bg-green-500/20 text-green-400';
+                        visibleStatusMsg.textContent = '✅ Pembayaran berhasil!';
+                    }
+                    
+                    // Hide displays and show success
+                    document.getElementById('qrisDisplay')?.classList.add('hidden');
+                    document.getElementById('redirectDisplay')?.classList.add('hidden');
+                    onPaymentSuccess();
+                } else if (visibleStatusMsg) {
+                    visibleStatusMsg.classList.remove('hidden');
+                    visibleStatusMsg.className = 'mt-2 p-3 rounded-lg text-sm text-center bg-yellow-500/20 text-yellow-400';
+                    visibleStatusMsg.textContent = '⏳ Menunggu pembayaran...';
+                }
+            } catch (error) {
+                console.error('Status check error:', error);
+            }
+            
+            // Reset button text
+            document.querySelectorAll('#checkStatusBtn, #checkRedirectStatusBtn').forEach(btn => {
+                if (btn) btn.textContent = 'Cek Status Pembayaran';
+            });
+        }
+        
+        // ==========================================
+        // Gateway: Midtrans
+        // ==========================================
+        
+        function openMidtransPayment() {
+            if (!snapToken) {
+                showStatus('error');
+                return;
+            }
+            
+            snap.pay(snapToken, {
+                onSuccess: function(result) {
+                    updatePaymentStatus('paid', result);
+                    onPaymentSuccess();
+                },
+                onPending: function(result) {
+                    updatePaymentStatus('pending', result);
+                    showStatus('pending');
+                },
+                onError: function(result) {
+                    updatePaymentStatus('failed', result);
+                    showStatus('error');
+                },
+                onClose: function() {
+                    console.log('Payment popup closed');
+                }
+            });
+        }
+        
+        // ==========================================
+        // Gateway: BRI QRIS
+        // ==========================================
         
         async function openBriQrisPayment() {
             const btn = document.getElementById('payButton');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating QR Code...';
+            setButtonLoading(btn, true);
             
             try {
                 const response = await fetch('/api/payment/qris-bri/create', {
@@ -437,73 +572,162 @@
                     document.getElementById('qrisImage').src = data.qr_image;
                     document.getElementById('qrisDisplay').classList.remove('hidden');
                     btn.classList.add('hidden');
-                    
-                    // Auto-poll status every 5 seconds
-                    qrisPollingInterval = setInterval(checkBriQrisStatus, 5000);
+                    startPolling();
                 } else {
                     alert('Gagal generate QR: ' + (data.error || 'Unknown error'));
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-qrcode mr-2"></i>Bayar dengan QRIS BRI';
+                    btn.innerHTML = '<span>Bayar dengan QRIS BRI</span>';
                 }
             } catch (error) {
                 alert('Error: ' + error.message);
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-qrcode mr-2"></i>Bayar dengan QRIS BRI';
+                btn.innerHTML = '<span>Bayar dengan QRIS BRI</span>';
             }
         }
         
-        async function checkBriQrisStatus() {
-            const statusMsg = document.getElementById('qrisStatusMsg');
-            const checkBtn = document.getElementById('checkStatusBtn');
-            checkBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Checking...';
+        // ==========================================
+        // Gateway: Tripay
+        // ==========================================
+        
+        async function openTripayPayment() {
+            const btn = document.getElementById('payButton');
+            setButtonLoading(btn, true);
             
             try {
-                const response = await fetch('/api/payment/qris-bri/status', {
+                const response = await fetch('/api/payment/tripay/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId, payment_method: 'QRIS' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // If QR image available (QRIS), show QR
+                    if (data.qr_image) {
+                        document.getElementById('qrisImage').src = data.qr_image;
+                        document.getElementById('qrisDisplay').classList.remove('hidden');
+                        btn.classList.add('hidden');
+                        startPolling();
+                    } 
+                    // If checkout_url available, redirect
+                    else if (data.checkout_url) {
+                        showRedirectDisplay(data.checkout_url);
+                        btn.classList.add('hidden');
+                        startPolling();
+                    } else {
+                        alert('Gagal membuat pembayaran Tripay');
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>Bayar dengan Tripay</span>';
+                    }
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>Bayar dengan Tripay</span>';
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<span>Bayar dengan Tripay</span>';
+            }
+        }
+        
+        // ==========================================
+        // Gateway: Duitku
+        // ==========================================
+        
+        async function openDuitkuPayment() {
+            const btn = document.getElementById('payButton');
+            setButtonLoading(btn, true);
+            
+            try {
+                const response = await fetch('/api/payment/duitku/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ order_id: orderId })
                 });
                 
                 const data = await response.json();
-                statusMsg.classList.remove('hidden');
                 
-                if (data.success && data.status === 'paid') {
-                    if (qrisPollingInterval) clearInterval(qrisPollingInterval);
-                    
-                    statusMsg.className = 'mt-2 p-3 rounded-lg text-sm text-center bg-green-500/20 text-green-400';
-                    statusMsg.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Pembayaran berhasil!';
-                    
-                    showStatus('success');
-                    document.getElementById('qrisDisplay').classList.add('hidden');
-                    
-                    // Print receipt
-                    saveReceiptToServerQueue(orderData, 3);
-                    
-                    setTimeout(() => {
-                        window.location.href = "{{ url_for('views.orders') }}";
-                    }, 3000);
+                if (data.success && data.payment_url) {
+                    showRedirectDisplay(data.payment_url);
+                    btn.classList.add('hidden');
+                    startPolling();
                 } else {
-                    statusMsg.className = 'mt-2 p-3 rounded-lg text-sm text-center bg-yellow-500/20 text-yellow-400';
-                    statusMsg.innerHTML = '<i class="fas fa-clock mr-2"></i>Menunggu pembayaran...';
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>Bayar dengan Duitku</span>';
                 }
             } catch (error) {
-                statusMsg.classList.remove('hidden');
-                statusMsg.className = 'mt-2 p-3 rounded-lg text-sm text-center bg-red-500/20 text-red-400';
-                statusMsg.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>Error: ' + error.message;
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<span>Bayar dengan Duitku</span>';
             }
-            
-            checkBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Cek Status Pembayaran';
         }
         
-        // Clean up polling when page is hidden or unloaded
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden && qrisPollingInterval) {
-                clearInterval(qrisPollingInterval);
-                qrisPollingInterval = null;
+        // ==========================================
+        // Gateway: DOKU
+        // ==========================================
+        
+        async function openDokuPayment() {
+            const btn = document.getElementById('payButton');
+            setButtonLoading(btn, true);
+            
+            try {
+                const response = await fetch('/api/payment/doku/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.payment_url) {
+                    showRedirectDisplay(data.payment_url);
+                    btn.classList.add('hidden');
+                    startPolling();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.innerHTML = '<span>Bayar dengan DOKU</span>';
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<span>Bayar dengan DOKU</span>';
             }
+        }
+        
+        // ==========================================
+        // Redirect Display Helper
+        // ==========================================
+        
+        function showRedirectDisplay(paymentUrl) {
+            const redirectDisplay = document.getElementById('redirectDisplay');
+            const paymentLink = document.getElementById('paymentLink');
+            paymentLink.href = paymentUrl;
+            redirectDisplay.classList.remove('hidden');
+            
+            // Open payment URL in new tab
+            window.open(paymentUrl, '_blank', 'noopener');
+        }
+        
+        // ==========================================
+        // Auto-pay on page load
+        // ==========================================
+        
+        {% if auto_pay and active_gateway == 'midtrans' %}
+        window.onload = function() {
+            setTimeout(openMidtransPayment, 500);
+        };
+        {% endif %}
+        
+        // Clean up polling on page hide/unload
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) stopPolling();
         });
         window.addEventListener('beforeunload', function() {
-            if (qrisPollingInterval) clearInterval(qrisPollingInterval);
+            stopPolling();
         });
     </script>
 </body>

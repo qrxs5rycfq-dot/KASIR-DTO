@@ -1113,49 +1113,48 @@ def payment_page(order_id):
         flash('Pesanan tidak ditemukan', 'error')
         return redirect(url_for('views.orders'))
     
-    # Get snap token from payment or generate new one
-    snap_token = None
-    if order.payment and order.payment.snap_token:
-        snap_token = order.payment.snap_token
-    elif order.payment and order.payment.status == 'pending':
-        # Generate snap token if not exists
-        try:
-            import midtransclient
-            
-            snap = midtransclient.Snap(
-                is_production=current_app.config.get('MIDTRANS_IS_PRODUCTION', False),
-                server_key=current_app.config.get('MIDTRANS_SERVER_KEY', ''),
-                client_key=current_app.config.get('MIDTRANS_CLIENT_KEY', '')
-            )
-            
-            param = {
-                "transaction_details": {
-                    "order_id": f"DTO-{order.id}-{int(datetime.now().timestamp())}",
-                    "gross_amount": int(order.total)
-                },
-                "customer_details": {
-                    "first_name": current_user.full_name or current_user.username,
-                    "email": current_user.email or f"{current_user.username}@dapoerterasobor.com"
-                },
-                "item_details": [{
-                    "id": str(item.menu_item_id),
-                    "price": int(item.price),
-                    "quantity": item.quantity,
-                    "name": item.menu_item.name[:50]
-                } for item in order.items]
-            }
-            
-            transaction = snap.create_transaction(param)
-            snap_token = transaction.get('token')
-            
-            # Save snap token
-            order.payment.snap_token = snap_token
-            db.session.commit()
-        except Exception as e:
-            print(f"Error generating snap token: {e}")
-    
     # Determine active gateway
     active_gateway = get_setting('active_payment_gateway', 'midtrans')
+    
+    # Only generate Midtrans snap token when midtrans is the active gateway
+    snap_token = None
+    if active_gateway == 'midtrans':
+        if order.payment and order.payment.snap_token:
+            snap_token = order.payment.snap_token
+        elif order.payment and order.payment.status == 'pending':
+            try:
+                import midtransclient
+                
+                snap = midtransclient.Snap(
+                    is_production=current_app.config.get('MIDTRANS_IS_PRODUCTION', False),
+                    server_key=current_app.config.get('MIDTRANS_SERVER_KEY', ''),
+                    client_key=current_app.config.get('MIDTRANS_CLIENT_KEY', '')
+                )
+                
+                param = {
+                    "transaction_details": {
+                        "order_id": f"DTO-{order.id}-{int(datetime.now().timestamp())}",
+                        "gross_amount": int(order.total)
+                    },
+                    "customer_details": {
+                        "first_name": current_user.full_name or current_user.username,
+                        "email": current_user.email or f"{current_user.username}@dapoerterasobor.com"
+                    },
+                    "item_details": [{
+                        "id": str(item.menu_item_id),
+                        "price": int(item.price),
+                        "quantity": item.quantity,
+                        "name": item.menu_item.name[:50]
+                    } for item in order.items]
+                }
+                
+                transaction = snap.create_transaction(param)
+                snap_token = transaction.get('token')
+                
+                order.payment.snap_token = snap_token
+                db.session.commit()
+            except Exception as e:
+                print(f"Error generating snap token: {e}")
     
     return render_template('payment.html', 
                          order=order, 
