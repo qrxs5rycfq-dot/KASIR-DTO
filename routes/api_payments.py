@@ -1,7 +1,9 @@
 import base64
 import hashlib
 import hmac
+import json
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 
@@ -1076,7 +1078,6 @@ def doku_generate_signature(client_id, secret_key, request_id, request_timestamp
     """Generate DOKU HMAC-SHA256 signature"""
     # Calculate digest from body (SHA256 + Base64)
     if body_json:
-        import json
         body_string = json.dumps(body_json, separators=(',', ':'))
         digest = base64.b64encode(
             hashlib.sha256(body_string.encode('utf-8')).digest()
@@ -1121,7 +1122,6 @@ def api_create_doku_payment():
         request_target = '/checkout/v1/payment'
         invoice_number = f"DTO-{order.order_number}"
 
-        import uuid
         request_id = str(uuid.uuid4())
         request_timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
@@ -1156,7 +1156,6 @@ def api_create_doku_payment():
             client_id, secret_key, request_id, request_timestamp, request_target, payload
         )
 
-        import json
         headers = {
             'Client-Id': client_id,
             'Request-Id': request_id,
@@ -1331,7 +1330,6 @@ def api_test_doku_gateway():
     base_url = 'https://api.doku.com' if is_production else 'https://api-sandbox.doku.com'
     request_target = '/checkout/v1/payment'
 
-    import uuid
     request_id = str(uuid.uuid4())
     request_timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
@@ -1349,7 +1347,6 @@ def api_test_doku_gateway():
         client_id, secret_key, request_id, request_timestamp, request_target, payload
     )
 
-    import json
     headers = {
         'Client-Id': client_id,
         'Request-Id': request_id,
