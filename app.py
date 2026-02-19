@@ -188,8 +188,10 @@ def _get_column_sql(column, dialect_name):
     return f"{column.name} {sql_type}{default_clause}"
 
 
-def _quote_ident(name):
-    """Quote a SQL identifier to prevent injection (double any existing quotes)."""
+def _quote_ident(name, dialect_name='sqlite'):
+    """Quote a SQL identifier to prevent injection. Uses backticks for MySQL, double quotes for others."""
+    if dialect_name == 'mysql':
+        return '`' + name.replace('`', '``') + '`'
     return '"' + name.replace('"', '""') + '"'
 
 
@@ -217,7 +219,7 @@ def auto_migrate():
         if not model_columns:
             continue
 
-        quoted_table = _quote_ident(table_name)
+        quoted_table = _quote_ident(table_name, dialect_name)
         with db.engine.connect() as conn:
             for col in model_columns:
                 col_sql = _get_column_sql(col, dialect_name)
@@ -241,6 +243,7 @@ def fix_legacy_data():
     from sqlalchemy import inspect, text
 
     inspector = inspect(db.engine)
+    dialect_name = db.engine.dialect.name
     table_names = set(inspector.get_table_names())
 
     if 'branches' not in table_names:
@@ -256,7 +259,7 @@ def fix_legacy_data():
                     continue
                 cols = {c['name'] for c in inspector.get_columns(tbl)}
                 if 'branch_id' in cols:
-                    quoted = _quote_ident(tbl)
+                    quoted = _quote_ident(tbl, dialect_name)
                     result = conn.execute(
                         text(f"UPDATE {quoted} SET branch_id = :bid WHERE branch_id IS NULL"),
                         {'bid': pusat_id}
