@@ -664,6 +664,58 @@ async function setActiveGateway(gateway) {
     }
 }
 
+// Gateway config field mappings
+const gatewayFields = {
+    'midtrans': ['midtrans_server_key', 'midtrans_client_key', 'midtrans_is_production'],
+    'qris_bri': ['bri_client_id', 'bri_client_secret', 'bri_merchant_id', 'bri_terminal_id', 'bri_private_key_path', 'bri_is_production'],
+    'tripay': ['tripay_api_key', 'tripay_private_key', 'tripay_merchant_code', 'tripay_is_production'],
+    'duitku': ['duitku_api_key', 'duitku_merchant_code', 'duitku_is_production'],
+    'doku': ['doku_client_id', 'doku_secret_key', 'doku_is_production'],
+};
+
+const resultIds = {
+    'midtrans': 'midtrans-save-result',
+    'qris_bri': 'bri-save-result',
+    'tripay': 'tripay-save-result',
+    'duitku': 'duitku-save-result',
+    'doku': 'doku-save-result',
+};
+
+async function saveGatewayConfig(gateway) {
+    const fields = gatewayFields[gateway];
+    if (!fields) return;
+
+    const config = {};
+    for (const field of fields) {
+        const el = document.getElementById(field);
+        if (el) config[field] = el.value;
+    }
+
+    const resultEl = document.getElementById(resultIds[gateway]);
+    try {
+        const response = await fetch('/api/payment-gateway/save-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gateway, config })
+        });
+        const data = await response.json();
+        if (resultEl) {
+            resultEl.classList.remove('hidden');
+            resultEl.className = data.success
+                ? 'p-3 rounded-lg text-sm bg-green-500/20 border border-green-500/30 text-green-400'
+                : 'p-3 rounded-lg text-sm bg-red-500/20 border border-red-500/30 text-red-400';
+            resultEl.innerHTML = (data.success ? '<i class="fas fa-check-circle mr-2"></i>' : '<i class="fas fa-times-circle mr-2"></i>') + data.message;
+            if (data.success) setTimeout(() => resultEl.classList.add('hidden'), 3000);
+        }
+    } catch (error) {
+        if (resultEl) {
+            resultEl.classList.remove('hidden');
+            resultEl.className = 'p-3 rounded-lg text-sm bg-red-500/20 border border-red-500/30 text-red-400';
+            resultEl.innerHTML = '<i class="fas fa-times-circle mr-2"></i>Error: ' + error.message;
+        }
+    }
+}
+
 async function testMidtrans() {
     const btn = document.getElementById('test-midtrans-btn');
     const result = document.getElementById('midtrans-result');
