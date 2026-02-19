@@ -188,6 +188,11 @@ def _get_column_sql(column, dialect_name):
     return f"{column.name} {sql_type}{default_clause}"
 
 
+def _quote_ident(name):
+    """Quote a SQL identifier to prevent injection (double any existing quotes)."""
+    return '"' + name.replace('"', '""') + '"'
+
+
 def auto_migrate():
     """Automatically add missing tables and columns to the database.
     
@@ -212,10 +217,11 @@ def auto_migrate():
         if not model_columns:
             continue
 
+        quoted_table = _quote_ident(table_name)
         with db.engine.connect() as conn:
             for col in model_columns:
                 col_sql = _get_column_sql(col, dialect_name)
-                stmt = f"ALTER TABLE {table_name} ADD COLUMN {col_sql}"
+                stmt = f"ALTER TABLE {quoted_table} ADD COLUMN {col_sql}"
                 try:
                     conn.execute(text(stmt))
                     added_count += 1
@@ -240,23 +246,23 @@ def fix_legacy_data():
     if 'branches' not in table_names:
         return
 
-    allowed_tables = {'orders', 'carts', 'expenses', 'cashier_shifts',
-                      'pending_prints', 'notifications', 'discounts', 'incomes'}
     with db.engine.connect() as conn:
         result = conn.execute(text("SELECT id FROM branches WHERE code = 'PUSAT' LIMIT 1"))
         row = result.fetchone()
         if row:
             pusat_id = row[0]
-            for tbl in allowed_tables:
-                if tbl in table_names:
-                    cols = {c['name'] for c in inspector.get_columns(tbl)}
-                    if 'branch_id' in cols:
-                        result = conn.execute(
-                            text(f"UPDATE {tbl} SET branch_id = :bid WHERE branch_id IS NULL"),
-                            {'bid': pusat_id}
-                        )
-                        if result.rowcount > 0:
-                            print(f"  Assigned {result.rowcount} {tbl} records to Pusat branch")
+            for tbl in table_names:
+                if tbl == 'branches':
+                    continue
+                cols = {c['name'] for c in inspector.get_columns(tbl)}
+                if 'branch_id' in cols:
+                    quoted = _quote_ident(tbl)
+                    result = conn.execute(
+                        text(f"UPDATE {quoted} SET branch_id = :bid WHERE branch_id IS NULL"),
+                        {'bid': pusat_id}
+                    )
+                    if result.rowcount > 0:
+                        print(f"  Assigned {result.rowcount} {tbl} records to Pusat branch")
             conn.commit()
 
 def init_db():
