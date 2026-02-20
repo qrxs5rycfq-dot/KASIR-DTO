@@ -700,8 +700,27 @@ def admin_tables_share():
 @role_required('admin', 'manager')
 def admin_discounts():
     """Discount management page"""
-    discounts = branch_filter(Discount.query, Discount).order_by(Discount.created_at.desc()).all()
-    return render_template('admin/discounts.html', discounts=discounts)
+    user_bid = get_user_branch_id()
+    branches = None
+    selected_branch_id = user_bid
+
+    if user_bid is None:  # Admin
+        branches = Branch.query.order_by(Branch.name).all()
+        selected_branch_id = request.args.get('branch_id', type=int)
+        if selected_branch_id is None and branches:
+            selected_branch_id = branches[0].id
+
+    if selected_branch_id:
+        discounts = Discount.query.filter(
+            (Discount.branch_id == selected_branch_id) | (Discount.branch_id.is_(None))
+        ).order_by(Discount.created_at.desc()).all()
+    else:
+        discounts = Discount.query.order_by(Discount.created_at.desc()).all()
+
+    return render_template('admin/discounts.html',
+                         discounts=discounts,
+                         branches=branches,
+                         selected_branch_id=selected_branch_id)
 
 
 @admin_bp.route('/admin/discounts/create', methods=['POST'])
@@ -739,6 +758,10 @@ def admin_discount_create():
         start_date = datetime.fromisoformat(start_date) if start_date else None
         end_date = datetime.fromisoformat(end_date) if end_date else None
 
+        target_branch_id = get_user_branch_id()
+        if target_branch_id is None:  # Admin
+            target_branch_id = request.form.get('branch_id', type=int)
+
         discount = Discount(
             name=name,
             code=code,
@@ -751,7 +774,7 @@ def admin_discount_create():
             start_date=start_date,
             end_date=end_date,
             is_active=is_active,
-            branch_id=get_default_branch_id()
+            branch_id=target_branch_id or get_default_branch_id()
         )
 
         db.session.add(discount)
@@ -771,6 +794,12 @@ def admin_discount_create():
 def admin_discount_edit(discount_id):
     """Edit existing discount"""
     discount = Discount.query.get_or_404(discount_id)
+
+    # Manager can only edit discounts from their branch
+    user_bid = get_user_branch_id()
+    if user_bid and discount.branch_id != user_bid:
+        flash('Anda tidak memiliki akses untuk mengedit promo ini', 'danger')
+        return redirect(url_for('admin.admin_discounts'))
 
     try:
         discount.name = request.form.get('name', discount.name)
@@ -809,6 +838,12 @@ def admin_discount_delete(discount_id):
     """Delete a discount"""
     discount = Discount.query.get_or_404(discount_id)
 
+    # Manager can only delete discounts from their branch
+    user_bid = get_user_branch_id()
+    if user_bid and discount.branch_id != user_bid:
+        flash('Anda tidak memiliki akses untuk menghapus promo ini', 'danger')
+        return redirect(url_for('admin.admin_discounts'))
+
     try:
         name = discount.name
         db.session.delete(discount)
@@ -827,6 +862,12 @@ def admin_discount_delete(discount_id):
 def admin_discount_toggle(discount_id):
     """Toggle discount active status"""
     discount = Discount.query.get_or_404(discount_id)
+
+    # Manager can only toggle discounts from their branch
+    user_bid = get_user_branch_id()
+    if user_bid and discount.branch_id != user_bid:
+        return jsonify({'error': 'Akses ditolak'}), 403
+
     discount.is_active = not discount.is_active
     db.session.commit()
 

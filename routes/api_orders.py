@@ -205,12 +205,18 @@ def api_create_order():
 def api_get_order(order_id):
     """Get order details by ID for the view modal."""
     order = Order.query.get_or_404(order_id)
+    user_bid = get_user_branch_id()
+    if user_bid and order.branch_id != user_bid:
+        return jsonify({'error': 'Akses ditolak'}), 403
     return jsonify(order.to_dict())
 
 @api_orders.route('/api/order/<int:order_id>/status', methods=['PUT'])
 @login_required
 def api_update_order_status(order_id):
     order = Order.query.get_or_404(order_id)
+    user_bid = get_user_branch_id()
+    if user_bid and order.branch_id != user_bid:
+        return jsonify({'error': 'Akses ditolak'}), 403
     data = request.json
     
     new_status = data.get('status', order.status)
@@ -244,6 +250,9 @@ def api_update_order_status(order_id):
 def api_edit_order(order_id):
     """Edit order details (admin/manager only)."""
     order = Order.query.get_or_404(order_id)
+    user_bid = get_user_branch_id()
+    if user_bid and order.branch_id != user_bid:
+        return jsonify({'error': 'Akses ditolak'}), 403
     data = request.json
 
     if 'customer_name' in data:
@@ -308,6 +317,9 @@ def api_edit_order(order_id):
 def api_delete_order(order_id):
     """Delete an order (admin/manager only). Restores stock."""
     order = Order.query.get_or_404(order_id)
+    user_bid = get_user_branch_id()
+    if user_bid and order.branch_id != user_bid:
+        return jsonify({'error': 'Akses ditolak'}), 403
 
     # Restore stock for non-cancelled orders
     if order.status != 'cancelled':
@@ -377,6 +389,9 @@ def api_kitchen_orders():
 def api_update_item_status(item_id):
     """Update individual item status"""
     item = OrderItem.query.get_or_404(item_id)
+    user_bid = get_user_branch_id()
+    if user_bid and item.order.branch_id != user_bid:
+        return jsonify({'error': 'Akses ditolak'}), 403
     data = request.get_json()
     new_status = data.get('status')
     
@@ -414,6 +429,9 @@ def api_update_item_status(item_id):
 def api_update_order_kitchen_status(order_id):
     """Update all items in an order to a status"""
     order = Order.query.get_or_404(order_id)
+    user_bid = get_user_branch_id()
+    if user_bid and order.branch_id != user_bid:
+        return jsonify({'error': 'Akses ditolak'}), 403
     data = request.get_json()
     new_status = data.get('status')
     

@@ -20,6 +20,20 @@
             </button>
         </header>
         
+        {% if branches %}
+        <!-- Branch Selector (Admin only) -->
+        <div class="glass-card rounded-xl p-4 mb-6 flex items-center gap-4">
+            <i class="fas fa-store text-primary-400"></i>
+            <span class="text-gray-300 font-medium">Cabang:</span>
+            <select id="branch-selector" onchange="window.location.href='{{ url_for('admin.admin_discounts') }}?branch_id='+this.value"
+                    class="bg-white/10 border border-white/20 rounded-lg py-2 px-3 text-white">
+                {% for b in branches %}
+                <option value="{{ b.id }}" {% if b.id == selected_branch_id %}selected{% endif %}>{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="glass-card rounded-2xl p-4">
@@ -164,6 +178,9 @@
         </div>
         <form action="{{ url_for('admin.admin_discount_create') }}" method="POST" class="space-y-4">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            {% if selected_branch_id %}
+            <input type="hidden" name="branch_id" value="{{ selected_branch_id }}"/>
+            {% endif %}
             <div>
                 <label class="block text-sm font-medium mb-2">Nama Promo *</label>
                 <input type="text" name="name" required placeholder="Contoh: Diskon Tahun Baru"
