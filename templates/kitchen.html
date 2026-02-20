@@ -204,7 +204,7 @@ async function loadOrders() {
                             <div class="flex items-center justify-between p-2 rounded-lg ${getStatusColor(item.item_status)} border">
                                 <div class="flex-1">
                                     <div class="font-medium">${parseInt(item.quantity)}x ${escapeHtml(item.name)}</div>
-                                    ${item.spice_level && item.spice_level !== 'none' ? `<span class="text-xs">🌶️ ${{none:'Tdk Pedas',medium:'Sedang',hot:'Pedas'}[item.spice_level] || escapeHtml(item.spice_level)}</span>` : ''}
+                                    ${item.spice_level && item.spice_level !== 'none' ? `<span class="text-xs">🌶️ ${escapeHtml({none:'Tdk Pedas',medium:'Sedang',hot:'Pedas'}[item.spice_level] || item.spice_level)}</span>` : ''}
                                     ${item.temperature && item.temperature !== 'normal' ? `<span class="text-xs ml-1">${item.temperature === 'hot' ? '🔥 Panas' : '❄️ Dingin'}</span>` : ''}
                                     ${item.notes ? `<div class="text-xs italic opacity-75">${escapeHtml(item.notes)}</div>` : ''}
                                 </div>
