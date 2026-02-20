@@ -267,13 +267,14 @@ function toggleBranchForRole(prefix) {
     var sel = document.getElementById(prefix === 'add' ? 'add-role' : 'edit-role');
     var opt = document.getElementById(prefix + '-all-branch-opt');
     var branchSel = document.getElementById(prefix === 'add' ? 'add-user-branch' : 'edit-branch');
+    if (!sel || !opt || !branchSel || sel.selectedIndex < 0) return;
     var roleName = sel.options[sel.selectedIndex].getAttribute('data-name');
     if (roleName === 'admin') {
         opt.style.display = '';
         branchSel.value = '';
     } else {
         opt.style.display = 'none';
-        if (branchSel.value === '') branchSel.selectedIndex = 1;
+        if (branchSel.value === '' && branchSel.options.length > 1) branchSel.selectedIndex = 1;
     }
 }
 
