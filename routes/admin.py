@@ -711,6 +711,7 @@ def admin_discounts():
             selected_branch_id = branches[0].id
 
     if selected_branch_id:
+        # Include branch-specific and global (NULL branch_id) discounts
         discounts = Discount.query.filter(
             (Discount.branch_id == selected_branch_id) | (Discount.branch_id.is_(None))
         ).order_by(Discount.created_at.desc()).all()
