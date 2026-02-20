@@ -605,9 +605,20 @@ def admin_menu_share():
         flash('Pilih cabang asal dan tujuan yang berbeda!', 'danger')
         return redirect(url_for('admin.admin_menu'))
 
+    from_branch = Branch.query.get(from_branch_id)
+    to_branch = Branch.query.get(to_branch_id)
+    if not from_branch or not to_branch:
+        flash('Cabang tidak ditemukan!', 'danger')
+        return redirect(url_for('admin.admin_menu'))
+
     source_items = MenuItem.query.filter_by(branch_id=from_branch_id).all()
     copied = 0
+    skipped = 0
     for item in source_items:
+        # Skip if menu with same code already exists in target branch
+        if item.code and MenuItem.query.filter_by(code=item.code, branch_id=to_branch_id).first():
+            skipped += 1
+            continue
         new_item = MenuItem(
             code=item.code,
             name=item.name,
@@ -630,12 +641,10 @@ def admin_menu_share():
 
     db.session.commit()
 
-    from_branch = Branch.query.get(from_branch_id)
-    to_branch = Branch.query.get(to_branch_id)
-    if not from_branch or not to_branch:
-        flash('Cabang tidak ditemukan!', 'danger')
-        return redirect(url_for('admin.admin_menu'))
-    flash(f'{copied} menu berhasil disalin dari {from_branch.name} ke {to_branch.name}!', 'success')
+    msg = f'{copied} menu berhasil disalin dari {from_branch.name} ke {to_branch.name}!'
+    if skipped:
+        msg += f' ({skipped} menu dilewati karena kode sudah ada)'
+    flash(msg, 'success')
     return redirect(url_for('admin.admin_menu', branch_id=to_branch_id))
 
 
@@ -649,6 +658,12 @@ def admin_tables_share():
 
     if not from_branch_id or not to_branch_id or from_branch_id == to_branch_id:
         flash('Pilih cabang asal dan tujuan yang berbeda!', 'danger')
+        return redirect(url_for('admin.admin_tables'))
+
+    from_branch = Branch.query.get(from_branch_id)
+    to_branch = Branch.query.get(to_branch_id)
+    if not from_branch or not to_branch:
+        flash('Cabang tidak ditemukan!', 'danger')
         return redirect(url_for('admin.admin_tables'))
 
     source_tables = Table.query.filter_by(branch_id=from_branch_id).all()
@@ -671,11 +686,6 @@ def admin_tables_share():
 
     db.session.commit()
 
-    from_branch = Branch.query.get(from_branch_id)
-    to_branch = Branch.query.get(to_branch_id)
-    if not from_branch or not to_branch:
-        flash('Cabang tidak ditemukan!', 'danger')
-        return redirect(url_for('admin.admin_tables'))
     msg = f'{copied} meja berhasil disalin dari {from_branch.name} ke {to_branch.name}!'
     if skipped:
         msg += f' ({skipped} meja dilewati karena nomor sudah ada)'
