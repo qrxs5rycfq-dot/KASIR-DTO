@@ -233,7 +233,7 @@ public class MainActivity extends AppCompatActivity {
         spinnerPaperWidth = findViewById(R.id.spinnerPaperWidth);
 
         // Setup paper width spinner
-        String[] paperWidths = {"80mm (Standar)", "60mm (Sedang)", "40mm (Kecil)"};
+        String[] paperWidths = {"58mm (32 char)", "80mm (48 char)", "110mm (64 char)"};
         ArrayAdapter<String> paperAdapter = new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_item, paperWidths);
         paperAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -979,9 +979,9 @@ public class MainActivity extends AppCompatActivity {
         // Load paper width setting
         int paperWidth = prefs.getInt("paper_width", 80);
         switch (paperWidth) {
-            case 60: spinnerPaperWidth.setSelection(1); break;
-            case 40: spinnerPaperWidth.setSelection(2); break;
-            default: spinnerPaperWidth.setSelection(0); break; // 80mm
+            case 58: spinnerPaperWidth.setSelection(0); break;
+            case 110: spinnerPaperWidth.setSelection(2); break;
+            default: spinnerPaperWidth.setSelection(1); break; // 80mm
         }
     }
 
@@ -1018,8 +1018,8 @@ public class MainActivity extends AppCompatActivity {
         int paperWidthSelection = spinnerPaperWidth.getSelectedItemPosition();
         int paperWidth;
         switch (paperWidthSelection) {
-            case 1: paperWidth = 60; break;
-            case 2: paperWidth = 40; break;
+            case 0: paperWidth = 58; break;
+            case 2: paperWidth = 110; break;
             default: paperWidth = 80; break;
         }
         editor.putInt("paper_width", paperWidth);

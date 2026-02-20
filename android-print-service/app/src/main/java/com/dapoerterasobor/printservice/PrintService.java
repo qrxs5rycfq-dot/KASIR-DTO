@@ -814,13 +814,13 @@ public class PrintService extends Service {
             return bytes;
         } else {
             // Deteksi paper width dari settings
-            // 80mm = 48 chars, 60mm = 35 chars, 40mm = 24 chars
+            // 58mm = 32 chars, 80mm = 48 chars, 110mm = 64 chars
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             int paperWidth = prefs.getInt("paper_width", 80);
             int charWidth;
             switch (paperWidth) {
-                case 40: charWidth = 24; break;
-                case 60: charWidth = 35; break;
+                case 58: charWidth = 32; break;
+                case 110: charWidth = 64; break;
                 default: charWidth = 48; break;  // 80mm default
             }
 

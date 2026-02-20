@@ -8,10 +8,8 @@ def emit_print_job(pending_print, branch_id=None):
     """Emit a new print job via WebSocket to all connected printer clients.
     Called after PendingPrint records are created."""
     data = pending_print.to_dict()
-    room = f'branch_{branch_id}' if branch_id else None
+    room = f'branch_{branch_id}' if branch_id else 'branch_all'
     socketio.emit('new_print_job', data, room=room, namespace='/')
-    # Also broadcast to 'all' room for owner/admin devices
-    socketio.emit('new_print_job', data, room='branch_all', namespace='/')
 
 
 def register_socket_handlers(socketio):
