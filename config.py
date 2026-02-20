@@ -40,7 +40,6 @@ class Config:
     
     # Rate limiting config
     RATELIMIT_STORAGE_URI = "memory://"
-    RATELIMIT_DEFAULT = "200 per day;50 per hour"
     RATELIMIT_HEADERS_ENABLED = True
     
     # File upload config
@@ -56,8 +55,18 @@ class Config:
     # QR Code config
     QR_CODE_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'qrcodes')
     
-    # Application URL (for QR codes)
-    APP_URL = os.environ.get('APP_URL', 'http://localhost:8000')
+    # Application URL (for QR codes, kosongkan untuk auto-detect dari request)
+    APP_URL = os.environ.get('APP_URL', '')
+    
+    # Duitku config
+    DUITKU_API_KEY = os.environ.get('DUITKU_API_KEY', '')
+    DUITKU_MERCHANT_CODE = os.environ.get('DUITKU_MERCHANT_CODE', '')
+    DUITKU_IS_PRODUCTION = os.environ.get('DUITKU_IS_PRODUCTION', 'false').lower() == 'true'
+    
+    # DOKU config
+    DOKU_CLIENT_ID = os.environ.get('DOKU_CLIENT_ID', '')
+    DOKU_SECRET_KEY = os.environ.get('DOKU_SECRET_KEY', '')
+    DOKU_IS_PRODUCTION = os.environ.get('DOKU_IS_PRODUCTION', 'false').lower() == 'true'
 
 class DevelopmentConfig(Config):
     DEBUG = True
@@ -66,8 +75,6 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     SESSION_COOKIE_SECURE = True  # Require HTTPS in production
-    # More restrictive rate limits for production
-    RATELIMIT_DEFAULT = "100 per day;30 per hour"
 
 config = {
     'development': DevelopmentConfig,

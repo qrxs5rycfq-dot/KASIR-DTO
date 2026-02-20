@@ -9,9 +9,22 @@
     {% include 'partials/_sidebar.html' %}
     
     <main class="flex-1 ml-0 md:ml-64 p-4 md:p-8 pt-16 md:pt-8">
-        <header class="mb-8">
-            <h1 class="text-2xl font-display font-bold">Laporan & Statistik</h1>
-            <p class="text-gray-400">Lihat dan export laporan penjualan</p>
+        <header class="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h1 class="text-2xl font-display font-bold">Laporan & Statistik</h1>
+                <p class="text-gray-400">Lihat dan export laporan penjualan</p>
+            </div>
+            {% if is_admin and branches %}
+            <form id="branch-filter-form" class="flex items-center gap-2">
+                <select id="report-branch-filter" onchange="updateReportBranch()"
+                        class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
+                    <option value="">Semua Cabang</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}">{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
         </header>
         
         <!-- Report Types -->
@@ -23,7 +36,7 @@
                 </div>
                 <h3 class="text-lg font-semibold mb-2">Laporan Pendapatan</h3>
                 <p class="text-gray-400 text-sm mb-4">Lihat detail pendapatan harian, mingguan, atau bulanan</p>
-                <a href="{{ url_for('income_report') }}" class="btn-primary inline-block px-4 py-2 rounded-xl text-sm font-medium">
+                <a href="{{ url_for('views.income_report') }}" class="btn-primary inline-block px-4 py-2 rounded-xl text-sm font-medium">
                     <i class="fas fa-eye mr-2"></i>Lihat Laporan
                 </a>
             </div>
@@ -35,7 +48,8 @@
                 </div>
                 <h3 class="text-lg font-semibold mb-2">Export PDF</h3>
                 <p class="text-gray-400 text-sm mb-4">Download laporan dalam format PDF</p>
-                <form action="{{ url_for('export_pdf') }}" method="GET" class="space-y-3">
+                <form action="{{ url_for('views.export_pdf') }}" method="GET" class="space-y-3 report-export-form">
+                    <input type="hidden" name="branch_id" class="branch-id-field" value="">
                     <div class="grid grid-cols-2 gap-2">
                         <input type="date" name="start_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
                         <input type="date" name="end_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
@@ -53,7 +67,8 @@
                 </div>
                 <h3 class="text-lg font-semibold mb-2">Export Excel</h3>
                 <p class="text-gray-400 text-sm mb-4">Download laporan dalam format Excel</p>
-                <form action="{{ url_for('export_excel') }}" method="GET" class="space-y-3">
+                <form action="{{ url_for('views.export_excel') }}" method="GET" class="space-y-3 report-export-form">
+                    <input type="hidden" name="branch_id" class="branch-id-field" value="">
                     <div class="grid grid-cols-2 gap-2">
                         <input type="date" name="start_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
                         <input type="date" name="end_date" required class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
@@ -98,5 +113,12 @@ fetch('/api/stats')
         document.getElementById('today-income').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(data.total_income);
         document.getElementById('today-orders').textContent = data.total_orders;
     });
+
+// Update branch_id in export forms when admin changes branch filter
+function updateReportBranch() {
+    const sel = document.getElementById('report-branch-filter');
+    if (!sel) return;
+    document.querySelectorAll('.branch-id-field').forEach(f => f.value = sel.value);
+}
 </script>
 {% endblock %}

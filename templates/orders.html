@@ -17,19 +17,33 @@
         </header>
         
         <!-- Filters -->
-        <div class="glass-card rounded-2xl p-4 mb-6 flex items-center space-x-4">
-            <a href="{{ url_for('orders') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'all' %}bg-primary-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
-                Semua
-            </a>
-            <a href="{{ url_for('orders', status='pending') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'pending' %}bg-yellow-500 text-black{% else %}bg-white/5 text-gray-400{% endif %}">
-                Pending
-            </a>
-            <a href="{{ url_for('orders', status='processing') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'processing' %}bg-blue-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
-                Diproses
-            </a>
-            <a href="{{ url_for('orders', status='completed') }}" class="px-4 py-2 rounded-xl {% if status_filter == 'completed' %}bg-green-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
-                Selesai
-            </a>
+        <div class="glass-card rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-4">
+            <div class="flex items-center space-x-2">
+                <a href="{{ url_for('views.orders', branch_id=filter_branch_id) }}" class="px-4 py-2 rounded-xl {% if status_filter == 'all' %}bg-primary-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+                    Semua
+                </a>
+                <a href="{{ url_for('views.orders', status='pending', branch_id=filter_branch_id) }}" class="px-4 py-2 rounded-xl {% if status_filter == 'pending' %}bg-yellow-500 text-black{% else %}bg-white/5 text-gray-400{% endif %}">
+                    Pending
+                </a>
+                <a href="{{ url_for('views.orders', status='processing', branch_id=filter_branch_id) }}" class="px-4 py-2 rounded-xl {% if status_filter == 'processing' %}bg-blue-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+                    Diproses
+                </a>
+                <a href="{{ url_for('views.orders', status='completed', branch_id=filter_branch_id) }}" class="px-4 py-2 rounded-xl {% if status_filter == 'completed' %}bg-green-500 text-white{% else %}bg-white/5 text-gray-400{% endif %}">
+                    Selesai
+                </a>
+            </div>
+            {% if is_admin and branches %}
+            <form method="GET" action="{{ url_for('views.orders') }}" class="flex items-center gap-2 ml-auto">
+                <input type="hidden" name="status" value="{{ status_filter }}">
+                <select name="branch_id" onchange="this.form.submit()"
+                        class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm">
+                    <option value="">Semua Cabang</option>
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if filter_branch_id == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
         </div>
         
         <!-- Orders Table -->
@@ -77,6 +91,14 @@
                                     <i class="fas fa-check"></i>
                                 </button>
                                 {% endif %}
+                                {% if current_user.has_role('admin') or current_user.has_role('manager') %}
+                                <button onclick="editOrder({{ order.id }})" class="p-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteOrder({{ order.id }}, '{{ order.order_number }}')" class="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400" title="Hapus">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -106,6 +128,27 @@
     </div>
 </div>
 
+{% if current_user.has_role('admin') or current_user.has_role('manager') %}
+<!-- Edit Order Modal -->
+<div id="edit-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+        <div class="flex items-center justify-between p-4 border-b border-white/10">
+            <h3 class="text-lg font-semibold">Edit Pesanan</h3>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="edit-modal-content" class="p-4 overflow-y-auto max-h-[60vh]">
+            <!-- Content will be loaded dynamically -->
+        </div>
+        <div class="p-4 border-t border-white/10 flex justify-end space-x-3">
+            <button onclick="closeEditModal()" class="px-4 py-2 rounded-lg bg-white/10 text-gray-300 hover:bg-white/20">Batal</button>
+            <button onclick="saveOrder()" class="px-4 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600">Simpan</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <style>
     .highlight-order {
         animation: highlightPulse 2s ease-in-out;
@@ -119,6 +162,13 @@
 </style>
 
 <script>
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 async function updateStatus(orderId, status) {
     try {
         const response = await fetch(`/api/order/${orderId}/status`, {
@@ -143,19 +193,19 @@ async function viewOrder(orderId) {
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <p class="text-gray-400">Order Number</p>
-                        <p class="font-semibold">${order.order_number}</p>
+                        <p class="font-semibold">${escapeHtml(order.order_number)}</p>
                     </div>
                     <div>
                         <p class="text-gray-400">Customer</p>
-                        <p class="font-semibold">${order.customer_name || 'Guest'}</p>
+                        <p class="font-semibold">${escapeHtml(order.customer_name) || 'Guest'}</p>
                     </div>
                     <div>
                         <p class="text-gray-400">Meja</p>
-                        <p class="font-semibold">${order.table || 'Takeaway'}</p>
+                        <p class="font-semibold">${escapeHtml(order.table) || 'Takeaway'}</p>
                     </div>
                     <div>
                         <p class="text-gray-400">Status</p>
-                        <p class="font-semibold capitalize">${order.status}</p>
+                        <p class="font-semibold capitalize">${escapeHtml(order.status)}</p>
                     </div>
                 </div>
                 
@@ -165,10 +215,10 @@ async function viewOrder(orderId) {
                         ${order.items.map(item => `
                             <div class="flex justify-between items-center bg-white/5 rounded-lg p-3">
                                 <div>
-                                    <p class="font-medium">${item.name}</p>
+                                    <p class="font-medium">${escapeHtml(item.name)}</p>
                                     <p class="text-xs text-gray-400">
-                                        ${item.spice_level ? 'Pedas: ' + item.spice_level : ''}
-                                        ${item.temperature ? ' | Suhu: ' + item.temperature : ''}
+                                        ${item.spice_level && item.spice_level !== 'none' ? 'Pedas: ' + escapeHtml({none:'Tdk Pedas',medium:'Sedang',hot:'Pedas'}[item.spice_level] || item.spice_level) : ''}
+                                        ${item.temperature && item.temperature !== 'normal' ? ' | Suhu: ' + escapeHtml({hot:'Panas',cold:'Dingin'}[item.temperature] || item.temperature) : ''}
                                     </p>
                                 </div>
                                 <div class="text-right">
@@ -252,5 +302,126 @@ document.addEventListener('DOMContentLoaded', function() {
 document.getElementById('order-modal').addEventListener('click', function(e) {
     if (e.target === this) closeOrderModal();
 });
+
+{% if current_user.has_role('admin') or current_user.has_role('manager') %}
+async function editOrder(orderId) {
+    try {
+        const response = await fetch(`/api/order/${orderId}`);
+        const order = await response.json();
+
+        const content = document.getElementById('edit-modal-content');
+        content.innerHTML = `
+            <input type="hidden" id="edit-order-id" value="${order.id}">
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Customer</label>
+                        <input type="text" id="edit-customer" value="${escapeHtml(order.customer_name) || ''}"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Catatan</label>
+                        <input type="text" id="edit-notes" value="${escapeHtml(order.notes) || ''}"
+                               class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Items</label>
+                    <div class="space-y-2" id="edit-items">
+                        ${order.items.map(item => `
+                            <div class="flex items-center gap-3 bg-white/5 rounded-lg p-3" data-item-id="${item.id}">
+                                <div class="flex-1">
+                                    <p class="font-medium">${escapeHtml(item.name)}</p>
+                                    <p class="text-xs text-gray-400">Rp ${item.price.toLocaleString('id-ID')}/pcs</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs text-gray-400">Qty:</label>
+                                    <input type="number" min="1" value="${item.quantity}"
+                                           class="edit-item-qty w-16 bg-white/10 border border-white/10 rounded px-2 py-1 text-center text-white">
+                                </div>
+                                <div class="w-24 text-right">
+                                    <span class="text-primary-400 edit-item-subtotal">Rp ${item.subtotal.toLocaleString('id-ID')}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Update subtotals on quantity change
+        content.querySelectorAll('.edit-item-qty').forEach(input => {
+            input.addEventListener('input', function() {
+                const row = this.closest('[data-item-id]');
+                const price = parseInt(row.querySelector('.text-xs').textContent.replace(/\D/g, ''));
+                const qty = parseInt(this.value) || 0;
+                row.querySelector('.edit-item-subtotal').textContent = 'Rp ' + (price * qty).toLocaleString('id-ID');
+            });
+        });
+
+        document.getElementById('edit-modal').classList.remove('hidden');
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function saveOrder() {
+    const orderId = document.getElementById('edit-order-id').value;
+    const items = [];
+    document.querySelectorAll('#edit-items [data-item-id]').forEach(row => {
+        items.push({
+            id: parseInt(row.dataset.itemId),
+            quantity: parseInt(row.querySelector('.edit-item-qty').value) || 1
+        });
+    });
+
+    try {
+        const response = await fetch(`/api/order/${orderId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                customer_name: document.getElementById('edit-customer').value,
+                notes: document.getElementById('edit-notes').value,
+                items: items
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            location.reload();
+        } else {
+            alert(result.error || 'Gagal menyimpan');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+function closeEditModal() {
+    document.getElementById('edit-modal').classList.add('hidden');
+}
+
+async function deleteOrder(orderId, orderNumber) {
+    if (!confirm(`Hapus pesanan ${escapeHtml(orderNumber)}? Data pesanan dan pembayaran akan dihapus permanen.`)) return;
+
+    try {
+        const response = await fetch(`/api/order/${orderId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+        if (result.success) {
+            location.reload();
+        } else {
+            alert(result.error || 'Gagal menghapus');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+});
+{% endif %}
 </script>
 {% endblock %}

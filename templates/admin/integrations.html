@@ -230,7 +230,7 @@ SHOPEEFOOD_STORE_BRANCH_MAP=shop111:PUSAT</pre>
                             <td class="py-3 px-4 text-gray-300 font-mono text-xs">{{ ext.external_order_id }}</td>
                             <td class="py-3 px-4">
                                 {% if ext.order %}
-                                <a href="{{ url_for('orders') }}" class="text-primary-400 hover:underline">{{ ext.order.order_number }}</a>
+                                <a href="{{ url_for('views.orders') }}" class="text-primary-400 hover:underline">{{ ext.order.order_number }}</a>
                                 {% else %}
                                 <span class="text-gray-500">-</span>
                                 {% endif %}

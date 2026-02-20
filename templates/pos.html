@@ -15,7 +15,7 @@
         <!-- Header -->
         <header class="glass-dark p-3 md:p-4 flex items-center justify-between">
             <div class="flex items-center space-x-2 md:space-x-4">
-                <a href="{{ url_for('dashboard') }}" class="text-gray-400 hover:text-white">
+                <a href="{{ url_for('views.dashboard') }}" class="text-gray-400 hover:text-white">
                     <i class="fas fa-arrow-left"></i>
                 </a>
                 <div class="flex items-center space-x-2 md:space-x-3">
@@ -39,7 +39,7 @@
             <!-- User Info & Printer Station Link -->
             <div class="flex items-center space-x-2 md:space-x-4">
                 <!-- Link to Printer Station -->
-                <a href="{{ url_for('printer_station') }}" target="_blank"
+                <a href="{{ url_for('views.printer_station') }}" target="_blank"
                         class="flex items-center space-x-2 px-2 md:px-3 py-2 rounded-xl bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition text-sm"
                         title="Buka Printer Station di tab baru">
                     <i class="fas fa-print"></i>
@@ -56,7 +56,7 @@
         </header>
         
         <!-- Categories -->
-        <div class="glass p-2 md:p-4 flex items-center space-x-2 md:space-x-3 overflow-x-auto">
+        <div class="glass p-2 md:p-4 flex items-center space-x-2 md:space-x-3 overflow-x-auto scroll-contain">
             <button onclick="filterCategory('all')" class="category-btn active px-3 md:px-4 py-1.5 md:py-2 rounded-xl bg-primary-500/20 text-primary-400 font-medium whitespace-nowrap transition hover:bg-primary-500/30 text-sm" data-category="all">
                 <i class="fas fa-th-large mr-1 md:mr-2"></i>Semua
             </button>
@@ -68,8 +68,8 @@
         </div>
         
         <!-- Menu Grid -->
-        <div class="flex-1 overflow-y-auto p-2 md:p-4">
-            <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
+        <div class="flex-1 overflow-y-auto scroll-contain p-2 md:p-4">
+            <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 md:gap-3 lg:gap-4">
                 {% for item in menu_items %}
                 <div class="menu-item menu-card glass-card rounded-2xl overflow-hidden cursor-pointer" 
                      data-id="{{ item.id }}"
@@ -81,7 +81,7 @@
                      data-temp="{{ item.has_temperature_option|lower }}"
                      onclick="addToCart({{ item.id }}, '{{ item.name }}', {{ item.price }}, {{ item.has_spicy_option|lower }}, {{ item.has_temperature_option|lower }})">
                     <div class="relative">
-                        <img src="{{ item.image }}" alt="{{ item.name }}" class="w-full h-28 object-cover">
+                        <img src="{{ item.image }}" alt="{{ item.name }}" class="w-full h-24 md:h-28 lg:h-32 object-cover">
                         {% if item.is_popular %}
                         <span class="absolute top-2 left-2 px-2 py-0.5 bg-yellow-500 text-yellow-900 text-xs font-bold rounded-full">
                             <i class="fas fa-fire mr-1"></i>Popular
@@ -107,7 +107,7 @@
     </div>
     
     <!-- Cart Section (Right) - Hidden on mobile by default -->
-    <div id="cart-section" class="fixed inset-0 md:relative md:inset-auto w-full md:w-96 glass-dark flex flex-col z-40 transform translate-y-full md:translate-y-0 transition-transform duration-300">
+    <div id="cart-section" class="fixed inset-0 md:relative md:inset-auto w-full md:w-80 lg:w-96 glass-dark flex flex-col z-40 transform translate-y-full md:translate-y-0 transition-transform duration-300 max-h-screen md:max-h-screen">
         <!-- Cart Header -->
         <div class="p-3 md:p-4 border-b border-white/10">
             <div class="flex items-center justify-between">
@@ -153,7 +153,7 @@
         </div>
         
         <!-- Cart Items -->
-        <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3">
+        <div id="cart-items" class="flex-1 overflow-y-auto scroll-contain p-4 space-y-3">
             <div id="empty-cart" class="text-center py-12 text-gray-500">
                 <i class="fas fa-shopping-cart text-4xl mb-3"></i>
                 <p>Keranjang kosong</p>
@@ -161,8 +161,8 @@
             </div>
         </div>
         
-        <!-- Cart Summary -->
-        <div class="p-4 border-t border-white/10 space-y-3">
+        <!-- Cart Summary - scrollable when content overflows -->
+        <div class="p-4 border-t border-white/10 space-y-3 overflow-y-auto scroll-contain" style="max-height: 50vh;">
             <div class="flex justify-between text-sm">
                 <span class="text-gray-400">Subtotal</span>
                 <span id="subtotal">Rp 0</span>
@@ -242,12 +242,9 @@
         
         <div id="spice-options" class="mb-4 hidden">
             <label class="text-sm text-gray-400 mb-2 block">Tingkat Kepedasan</label>
-            <div class="grid grid-cols-5 gap-2">
+            <div class="grid grid-cols-3 gap-2">
                 <button onclick="selectSpice('none')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="none">
                     Tidak Pedas
-                </button>
-                <button onclick="selectSpice('mild')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="mild">
-                    Sedikit
                 </button>
                 <button onclick="selectSpice('medium')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="medium">
                     Sedang
@@ -255,23 +252,17 @@
                 <button onclick="selectSpice('hot')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="hot">
                     Pedas
                 </button>
-                <button onclick="selectSpice('extra_hot')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="extra_hot">
-                    Extra Pedas
-                </button>
             </div>
         </div>
         
         <div id="temp-options" class="mb-4 hidden">
             <label class="text-sm text-gray-400 mb-2 block">Suhu Minuman</label>
-            <div class="grid grid-cols-3 gap-2">
+            <div class="grid grid-cols-2 gap-2">
                 <button onclick="selectTemp('hot')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="hot">
                     <i class="fas fa-mug-hot text-orange-400 mr-2"></i>Panas
                 </button>
                 <button onclick="selectTemp('cold')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="cold">
                     <i class="fas fa-snowflake text-blue-400 mr-2"></i>Dingin
-                </button>
-                <button onclick="selectTemp('normal')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="normal">
-                    <i class="fas fa-glass-water text-gray-400 mr-2"></i>Normal
                 </button>
             </div>
         </div>
@@ -322,6 +313,16 @@
 </div>
 
 <script>
+// Prevent scroll events from inner scrollable areas from reaching the body/window
+// This stops scroll-to-refresh triggers when scrolling sidebar, cart, or menu grid
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.scroll-contain').forEach(function(el) {
+        el.addEventListener('touchmove', function(e) {
+            e.stopPropagation();
+        }, { passive: true });
+    });
+});
+
 // Cart state - loaded from database
 let cart = { items: [], subtotal: 0, total: 0 };
 let paymentMethod = 'cash';
@@ -439,7 +440,7 @@ function addToCart(id, name, price, hasSpicy, hasTemp) {
         document.getElementById('options-modal').classList.add('flex');
         
         selectedSpice = 'none';
-        selectedTemp = 'normal';
+        selectedTemp = 'hot';
         document.querySelectorAll('.spice-btn, .temp-btn').forEach(btn => {
             btn.classList.remove('border-primary-500', 'bg-primary-500/20');
             btn.classList.add('border-transparent');
@@ -533,8 +534,8 @@ function updateCartUI() {
                     <div class="flex-1">
                         <h4 class="font-medium text-sm">${escapeHtml(item.name)}</h4>
                         <p class="text-primary-400 text-sm">${formatCurrency(item.price)}</p>
-                        ${item.spice_level ? `<span class="text-xs text-red-400"><i class="fas fa-pepper-hot mr-1"></i>${escapeHtml(item.spice_level)}</span>` : ''}
-                        ${item.temperature ? `<span class="text-xs text-blue-400 ml-2"><i class="fas fa-thermometer-half mr-1"></i>${escapeHtml(item.temperature)}</span>` : ''}
+                        ${item.spice_level && item.spice_level !== 'none' ? `<span class="text-xs text-red-400"><i class="fas fa-pepper-hot mr-1"></i>${escapeHtml({none:'Tdk Pedas',medium:'Sedang',hot:'Pedas'}[item.spice_level] || item.spice_level)}</span>` : ''}
+                        ${item.temperature && item.temperature !== 'normal' ? `<span class="text-xs text-blue-400 ml-2"><i class="fas fa-thermometer-half mr-1"></i>${escapeHtml({hot:'Panas',cold:'Dingin'}[item.temperature] || item.temperature)}</span>` : ''}
                         ${item.notes ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(item.notes)}</p>` : ''}
                     </div>
                     <button onclick="removeFromCart(${parseInt(item.id)})" class="text-red-400 hover:text-red-300">
@@ -930,8 +931,8 @@ function showReceipt(order) {
     document.getElementById('receipt-modal').classList.remove('hidden');
     document.getElementById('receipt-modal').classList.add('flex');
     
-    // AUTO PRINT 3x via Bluetooth after successful payment
-    autoPrintReceipt3x(order);
+    // Print jobs sudah dibuat oleh server via create_print_job()
+    // Tidak perlu memanggil autoPrintReceipt3x() lagi agar tidak duplikat
     
     // Note: Cart already cleared in processCheckout() after successful order
 }
@@ -1029,150 +1030,206 @@ async function autoPrintReceipt3x(order) {
     }
 }
 
-// Build ESC/POS receipt commands with copy number and FANCY DESIGN
+// Build ESC/POS receipt commands with copy number - responsive paper width
+// 3 copy: Pelanggan, Kasir, Koki
 function buildReceiptCommandsWithCopy(order, copyNum, totalCopies) {
     const encoder = new TextEncoder();
     let commands = [];
     
-    // Label untuk tiap lembar
-    const copyLabels = ['Kasir', 'Pelanggan', 'Dapur'];
+    // Label untuk tiap lembar: 1=Pelanggan, 2=Kasir, 3=Koki
+    const copyLabels = ['Pelanggan', 'Kasir', 'Koki'];
     const copyLabel = copyLabels[copyNum - 1] || `Copy ${copyNum}`;
+    const isKitchen = (copyLabel === 'Koki');
+    
+    // Paper width: 80mm=48 chars, 60mm=35 chars, 40mm=24 chars (default 48)
+    const W = 48;
+    const sepDouble = '='.repeat(W);
+    const sepSingle = '-'.repeat(W);
+    
+    // Helper: pad left-right text to fill W chars
+    const padLR = (left, right) => {
+        const space = W - left.length - right.length;
+        return left + ' '.repeat(Math.max(1, space)) + right;
+    };
+    
+    // Helper: truncate text
+    const trunc = (text, max) => text.length <= max ? text : text.substring(0, max - 3) + '...';
+    
+    // Helper: format Rp
+    const fmtRp = (num) => `Rp ${formatNumber(num || 0)}`;
     
     // Initialize printer
     commands.push(...ESC_POS.INIT);
     
-    // ========== HEADER LOGO - FANCY DESIGN ==========
+    // ===== HEADER =====
     commands.push(...ESC_POS.ALIGN_CENTER);
     commands.push(...ESC_POS.BOLD_ON);
-    
-    // Top border
-    commands.push(...encoder.encode('================================'));
+    commands.push(...encoder.encode(sepDouble));
     commands.push(...ESC_POS.FEED_LINE);
-    
-    // ASCII Art Logo - Dapoer Teras Obor
-    commands.push(...encoder.encode(' ★ DAPOER TERAS OBOR ★'));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...encoder.encode('    Kuliner Nusantara'));
-    commands.push(...ESC_POS.FEED_LINE);
-    
-    commands.push(...encoder.encode('================================'));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...ESC_POS.BOLD_OFF);
-    commands.push(...ESC_POS.FEED_LINE);
-    
-    // Restaurant Info
-    commands.push(...ESC_POS.BOLD_ON);
-    commands.push(...encoder.encode('Jl. Rw. Belong, Jakarta Barat'));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...ESC_POS.BOLD_OFF);
-    commands.push(...encoder.encode('Telp: 021-XXXXXXX'));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...ESC_POS.FEED_LINE);
-    
-    // ========== COPY INDICATOR ==========
-    commands.push(...ESC_POS.BOLD_ON);
-    commands.push(...encoder.encode(`>>> Lembar ${copyNum}/${totalCopies} - ${copyLabel} <<<`));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...ESC_POS.BOLD_OFF);
-    
-    commands.push(...encoder.encode('--------------------------------'));
-    commands.push(...ESC_POS.FEED_LINE);
-    
-    // ========== ORDER INFO ==========
-    commands.push(...ESC_POS.ALIGN_LEFT);
-    commands.push(...encoder.encode(`No Order : ${order.order_number || 'N/A'}`));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...encoder.encode(`Tanggal  : ${new Date().toLocaleDateString('id-ID')}`));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...encoder.encode(`Jam      : ${new Date().toLocaleTimeString('id-ID')}`));
-    commands.push(...ESC_POS.FEED_LINE);
-    if (order.table) {
-        commands.push(...encoder.encode(`Meja     : ${order.table}`));
-        commands.push(...ESC_POS.FEED_LINE);
-    }
-    commands.push(...encoder.encode(`Kasir    : {{ current_user.username }}`));
-    commands.push(...ESC_POS.FEED_LINE);
-    
-    commands.push(...encoder.encode('--------------------------------'));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...ESC_POS.ALIGN_CENTER);
-    commands.push(...ESC_POS.BOLD_ON);
-    commands.push(...encoder.encode('DETAIL PESANAN'));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...ESC_POS.BOLD_OFF);
-    commands.push(...encoder.encode('--------------------------------'));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...ESC_POS.ALIGN_LEFT);
-    
-    // ========== ITEMS ==========
-    if (order.items && order.items.length > 0) {
-        for (const item of order.items) {
-            const name = item.name.substring(0, 20);
-            const qty = `x${item.quantity}`;
-            const price = formatNumber(item.subtotal);
-            
-            commands.push(...encoder.encode(name));
-            commands.push(...ESC_POS.FEED_LINE);
-            commands.push(...encoder.encode(`   ${qty}           Rp ${price}`));
-            commands.push(...ESC_POS.FEED_LINE);
-        }
-    }
-    
-    commands.push(...encoder.encode('--------------------------------'));
-    commands.push(...ESC_POS.FEED_LINE);
-    
-    // ========== TOTALS ==========
-    const pad = (label, value) => {
-        const space = 32 - label.length - value.length;
-        return label + ' '.repeat(Math.max(1, space)) + value;
-    };
-    
-    commands.push(...encoder.encode(pad('Subtotal:', `Rp ${formatNumber(order.subtotal || 0)}`)));
-    commands.push(...ESC_POS.FEED_LINE);
-    
-    commands.push(...encoder.encode('================================'));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...ESC_POS.BOLD_ON);
     commands.push(...ESC_POS.DOUBLE_HEIGHT);
-    commands.push(...encoder.encode(pad('TOTAL:', `Rp ${formatNumber(order.total || 0)}`)));
+    commands.push(...encoder.encode('DAPOER TERAS OBOR'));
     commands.push(...ESC_POS.FEED_LINE);
     commands.push(...ESC_POS.NORMAL_SIZE);
     commands.push(...ESC_POS.BOLD_OFF);
-    commands.push(...encoder.encode('================================'));
+    commands.push(...encoder.encode('Kuliner Nusantara'));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...encoder.encode(sepDouble));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    
+    if (!isKitchen) {
+        commands.push(...encoder.encode('Jl. Rw. Belong, Jakarta Barat'));
+        commands.push(...ESC_POS.FEED_LINE);
+    }
     commands.push(...ESC_POS.FEED_LINE);
     
-    // ========== PAYMENT INFO ==========
-    if (order.payment) {
-        commands.push(...encoder.encode(pad('Bayar:', `Rp ${formatNumber(order.payment.paid_amount || 0)}`)));
+    // ===== COPY INDICATOR =====
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...encoder.encode(`[ ${copyLabel.toUpperCase()} - ${copyNum}/${totalCopies} ]`));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    commands.push(...encoder.encode(sepSingle));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    // ===== ORDER INFO =====
+    commands.push(...ESC_POS.ALIGN_LEFT);
+    commands.push(...ESC_POS.BOLD_ON);
+    commands.push(...encoder.encode(`No   : ${order.order_number || 'N/A'}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.BOLD_OFF);
+    commands.push(...encoder.encode(`Tgl  : ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'})}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...encoder.encode(`Meja : ${order.table || 'Takeaway'}`));
+    commands.push(...ESC_POS.FEED_LINE);
+    
+    if (!isKitchen) {
+        commands.push(...encoder.encode(`Nama : ${order.customer_name || 'Guest'}`));
         commands.push(...ESC_POS.FEED_LINE);
-        commands.push(...encoder.encode(pad('Kembalian:', `Rp ${formatNumber(order.payment.change_amount || 0)}`)));
+        const orderType = order.order_type === 'dine_in' ? 'Dine In' : 'Take Away';
+        commands.push(...encoder.encode(`Tipe : ${orderType}`));
         commands.push(...ESC_POS.FEED_LINE);
-        commands.push(...encoder.encode(`Metode: ${order.payment.payment_method || 'Cash'}`));
+        commands.push(...encoder.encode(`Kasir: {{ current_user.username }}`));
         commands.push(...ESC_POS.FEED_LINE);
     }
     
-    commands.push(...encoder.encode('--------------------------------'));
+    // ===== DETAIL PESANAN =====
+    commands.push(...encoder.encode(sepSingle));
     commands.push(...ESC_POS.FEED_LINE);
-    
-    // ========== FOOTER - THANK YOU ==========
     commands.push(...ESC_POS.ALIGN_CENTER);
-    commands.push(...ESC_POS.FEED_LINE);
     commands.push(...ESC_POS.BOLD_ON);
-    commands.push(...encoder.encode('★ TERIMA KASIH ★'));
+    commands.push(...encoder.encode(isKitchen ? 'PESANAN DAPUR' : 'DETAIL PESANAN'));
     commands.push(...ESC_POS.FEED_LINE);
     commands.push(...ESC_POS.BOLD_OFF);
-    commands.push(...encoder.encode('Atas Kunjungan Anda'));
+    commands.push(...encoder.encode(sepSingle));
     commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...encoder.encode('Selamat Menikmati Hidangan'));
-    commands.push(...ESC_POS.FEED_LINE);
+    commands.push(...ESC_POS.ALIGN_LEFT);
+    
+    // ===== ITEMS =====
+    const spiceLabels = {none:'Tdk Pedas', medium:'Sedang', hot:'Pedas'};
+    const tempLabels = {hot:'Panas', cold:'Dingin'};
+    
+    if (order.items && order.items.length > 0) {
+        for (const item of order.items) {
+            // Item name (bold)
+            commands.push(...ESC_POS.BOLD_ON);
+            commands.push(...encoder.encode(trunc(item.name, W - 2)));
+            commands.push(...ESC_POS.FEED_LINE);
+            commands.push(...ESC_POS.BOLD_OFF);
+            
+            // Qty & price
+            const qtyText = `  ${item.quantity}x @${fmtRp(item.price)}`;
+            const priceText = fmtRp(item.subtotal);
+            commands.push(...encoder.encode(padLR(qtyText, priceText)));
+            commands.push(...ESC_POS.FEED_LINE);
+            
+            // Detail: spice, temperature
+            const details = [];
+            if (item.spice_level && item.spice_level !== 'none') {
+                details.push(spiceLabels[item.spice_level] || item.spice_level);
+            }
+            if (item.temperature && item.temperature !== 'normal') {
+                details.push(tempLabels[item.temperature] || item.temperature);
+            }
+            if (details.length > 0) {
+                commands.push(...encoder.encode(`  >> ${details.join(', ')}`));
+                commands.push(...ESC_POS.FEED_LINE);
+            }
+            
+            // Notes
+            if (item.notes) {
+                commands.push(...encoder.encode(trunc(`  *) ${item.notes}`, W)));
+                commands.push(...ESC_POS.FEED_LINE);
+            }
+        }
+    }
+    
+    commands.push(...encoder.encode(sepSingle));
     commands.push(...ESC_POS.FEED_LINE);
     
-    // App branding
-    commands.push(...encoder.encode('~ Dapoer Teras Obor ~'));
+    // ===== TOTALS (tidak untuk Koki) =====
+    if (!isKitchen) {
+        commands.push(...encoder.encode(padLR('Subtotal', fmtRp(order.subtotal))));
+        commands.push(...ESC_POS.FEED_LINE);
+        
+        if (order.discount && order.discount > 0) {
+            commands.push(...encoder.encode(padLR('Diskon', `-${fmtRp(order.discount)}`)));
+            commands.push(...ESC_POS.FEED_LINE);
+        }
+        
+        commands.push(...encoder.encode(sepDouble));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...ESC_POS.BOLD_ON);
+        commands.push(...ESC_POS.DOUBLE_HEIGHT);
+        commands.push(...encoder.encode(padLR('TOTAL', fmtRp(order.total))));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...ESC_POS.NORMAL_SIZE);
+        commands.push(...ESC_POS.BOLD_OFF);
+        commands.push(...encoder.encode(sepDouble));
+        commands.push(...ESC_POS.FEED_LINE);
+        
+        // Payment info
+        if (order.payment) {
+            const methodMap = {cash:'TUNAI', online:'ONLINE', midtrans:'MIDTRANS', transfer:'TRANSFER'};
+            const methodText = methodMap[order.payment.payment_method] || (order.payment.payment_method || 'Cash').toUpperCase();
+            commands.push(...encoder.encode(padLR(`Bayar (${methodText})`, fmtRp(order.payment.paid_amount))));
+            commands.push(...ESC_POS.FEED_LINE);
+            if (order.payment.change_amount && order.payment.change_amount > 0) {
+                commands.push(...encoder.encode(padLR('Kembali', fmtRp(order.payment.change_amount))));
+                commands.push(...ESC_POS.FEED_LINE);
+            }
+        }
+        
+        commands.push(...encoder.encode(sepSingle));
+        commands.push(...ESC_POS.FEED_LINE);
+    }
+    
+    // ===== FOOTER =====
+    commands.push(...ESC_POS.ALIGN_CENTER);
     commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...encoder.encode(`Lembar ${copyNum}/${totalCopies} - ${copyLabel}`));
-    commands.push(...ESC_POS.FEED_LINE);
-    commands.push(...encoder.encode('================================'));
+    
+    if (isKitchen) {
+        commands.push(...ESC_POS.BOLD_ON);
+        commands.push(...encoder.encode(`#${order.order_number} - Meja ${order.table || 'Takeaway'}`));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...ESC_POS.BOLD_OFF);
+        commands.push(...encoder.encode(`[ KOKI - ${copyNum}/${totalCopies} ]`));
+        commands.push(...ESC_POS.FEED_LINE);
+    } else {
+        commands.push(...ESC_POS.BOLD_ON);
+        commands.push(...encoder.encode('Terima Kasih'));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...ESC_POS.BOLD_OFF);
+        commands.push(...encoder.encode('Selamat Menikmati!'));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...encoder.encode('~ Dapoer Teras Obor ~'));
+        commands.push(...ESC_POS.FEED_LINE);
+        commands.push(...encoder.encode(`[ ${copyLabel} - ${copyNum}/${totalCopies} ]`));
+        commands.push(...ESC_POS.FEED_LINE);
+    }
+    
+    commands.push(...encoder.encode(sepDouble));
     commands.push(...ESC_POS.FEED_LINES(4));
     
     // Cut paper

@@ -13,7 +13,12 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -22,13 +27,17 @@ import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
+import android.webkit.SslErrorHandler;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -51,6 +60,8 @@ import androidx.core.content.FileProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.firebase.messaging.FirebaseMessaging;
+
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -68,18 +79,25 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final String PREFS_NAME = "PrintServicePrefs";
+    private static final String DEFAULT_SERVER_URL = "http://10.111.108.37:8000";
 
     // Timeouts
     private static final int SERVICE_STATUS_UPDATE_INTERVAL = 2000; // 2 detik
+    private static final int WEBVIEW_HEALTH_CHECK_INTERVAL = 30000; // 30 detik
+    private static final int NETWORK_RELOAD_DELAY = 2000; // 2 detik setelah network kembali
+    private static final int ERROR_AUTO_RETRY_INTERVAL = 5000; // 5 detik auto-retry saat error
 
     private WebView webView;
     private SwipeRefreshLayout swipeRefreshLayout;
     private View settingsPanel;
+    private View settingsBackdrop;
+    private View floatingStatusBar;
     private EditText editServerUrl;
     private EditText editUsername;
     private EditText editPassword;
     private EditText editLanAddress;
     private Spinner spinnerPrinter;
+    private Spinner spinnerPaperWidth;
     private TextView txtServiceStatus;
     private TextView txtPrintStats;
     private Button btnToggleService;
@@ -96,6 +114,15 @@ public class MainActivity extends AppCompatActivity {
     // File upload handling
     private ValueCallback<Uri[]> fileUploadCallback;
     private Uri cameraImageUri;
+
+    // Network monitoring
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
+    private boolean isNetworkAvailable = true;
+    private boolean isNetworkValidated = false;
+    private boolean hasWebViewError = false;
+    private final Runnable autoRetryRunnable = this::retryLoadPage;
+    private final Runnable networkReloadRunnable = this::reloadWebViewAfterNetworkChange;
 
     // Activity result launchers
     private ActivityResultLauncher<Intent> fileChooserLauncher;
@@ -152,12 +179,45 @@ public class MainActivity extends AppCompatActivity {
 
         // Start periodic status updates
         startServiceStatusMonitor();
+
+        // Setup network change monitoring for WebView stability
+        setupNetworkMonitoring();
+
+        // Start WebView health check
+        startWebViewHealthCheck();
+
+        // Handle notification click intent
+        handleNotificationIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleNotificationIntent(intent);
+    }
+
+    private void handleNotificationIntent(Intent intent) {
+        if (intent != null && intent.hasExtra("target_url")) {
+            String targetUrl = intent.getStringExtra("target_url");
+            if (targetUrl != null && !targetUrl.isEmpty()) {
+                String serverUrl = getServerUrl();
+                if (!serverUrl.isEmpty()) {
+                    String fullUrl = serverUrl + (targetUrl.startsWith("/") ? targetUrl : "/" + targetUrl);
+                    Log.i(TAG, "Navigating to notification target: " + fullUrl);
+                    webView.loadUrl(fullUrl);
+                }
+                intent.removeExtra("target_url");
+            }
+        }
     }
 
     private void initializeViews() {
         webView = findViewById(R.id.webView);
         swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
         settingsPanel = findViewById(R.id.settingsPanel);
+        settingsBackdrop = findViewById(R.id.settingsBackdrop);
+        floatingStatusBar = findViewById(R.id.floatingStatusBar);
         editServerUrl = findViewById(R.id.editServerUrl);
         editUsername = findViewById(R.id.editUsername);
         editPassword = findViewById(R.id.editPassword);
@@ -170,6 +230,14 @@ public class MainActivity extends AppCompatActivity {
         radioPrinterType = findViewById(R.id.radioPrinterType);
         sectionBluetooth = findViewById(R.id.sectionBluetooth);
         sectionLan = findViewById(R.id.sectionLan);
+        spinnerPaperWidth = findViewById(R.id.spinnerPaperWidth);
+
+        // Setup paper width spinner
+        String[] paperWidths = {"58mm (32 char)", "80mm (48 char)", "110mm (64 char)"};
+        ArrayAdapter<String> paperAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, paperWidths);
+        paperAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerPaperWidth.setAdapter(paperAdapter);
 
         // Sembunyikan stats jika belum ada data
         if (txtPrintStats != null) {
@@ -180,6 +248,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupButtons() {
         findViewById(R.id.btnSettings).setOnClickListener(v -> toggleSettings());
         findViewById(R.id.btnSave).setOnClickListener(v -> saveSettings());
+        findViewById(R.id.btnCloseSettings).setOnClickListener(v -> closeSettings());
+        settingsBackdrop.setOnClickListener(v -> closeSettings());
         btnRefreshPrinters.setOnClickListener(v -> loadPairedPrinters());
         btnToggleService.setOnClickListener(v -> togglePrintService());
 
@@ -272,23 +342,35 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
         webSettings.setLoadsImagesAutomatically(true);
+        webSettings.setDefaultTextEncodingName("UTF-8");
+
+        // Security: allow mixed content only in compatibility mode
+        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+        // Performance optimizations
+        webSettings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+        webSettings.setOffscreenPreRaster(true);
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+
+        // Viewport settings for proper rendering
+        webSettings.setUseWideViewPort(true);
+        webSettings.setLoadWithOverviewMode(true);
         webSettings.setSupportZoom(true);
         webSettings.setBuiltInZoomControls(true);
         webSettings.setDisplayZoomControls(false);
-        webSettings.setUseWideViewPort(true);
-        webSettings.setLoadWithOverviewMode(true);
-        webSettings.setDefaultTextEncodingName("UTF-8");
+
+        // GPU hardware acceleration
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         // User agent
         String defaultUA = webSettings.getUserAgentString();
         webSettings.setUserAgentString(defaultUA + " DapoerTerasOborPOS/2.0 Android");
 
-        // Enable cookies
+        // Enable cookies with persistence
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
@@ -320,6 +402,8 @@ public class MainActivity extends AppCompatActivity {
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 Log.d(TAG, "Page loading: " + url);
+                // Cancel auto-retry saat halaman mulai dimuat
+                mainHandler.removeCallbacks(autoRetryRunnable);
             }
 
             @Override
@@ -329,16 +413,52 @@ public class MainActivity extends AppCompatActivity {
                 if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
                     swipeRefreshLayout.setRefreshing(false);
                 }
+                // Reset error state saat halaman berhasil dimuat
+                if (!url.startsWith("data:")) {
+                    hasWebViewError = false;
+                    mainHandler.removeCallbacks(autoRetryRunnable);
+                    // Register FCM token after successful page load (user logged in)
+                    registerFcmTokenIfNeeded(url);
+                }
                 Log.d(TAG, "Page finished: " + url);
             }
 
             @Override
-            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                Log.e(TAG, "WebView error: " + errorCode + " - " + description);
-                showWebViewError(description);
-                // Hentikan indikator refresh jika terjadi error
-                if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
-                    swipeRefreshLayout.setRefreshing(false);
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                // Hanya handle error untuk main frame (bukan sub-resources)
+                if (request.isForMainFrame()) {
+                    int errorCode = error.getErrorCode();
+                    String description = error.getDescription().toString();
+                    Log.e(TAG, "WebView error: " + errorCode + " - " + description);
+                    handlePageLoadError(description);
+                }
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+                // Handle HTTP errors (502, 503, 504, dll) hanya untuk main frame
+                if (request.isForMainFrame()) {
+                    int statusCode = errorResponse.getStatusCode();
+                    if (statusCode >= 500) {
+                        Log.e(TAG, "HTTP error: " + statusCode + " for " + request.getUrl());
+                        handlePageLoadError("Server error: " + statusCode);
+                    }
+                }
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                // Untuk server lokal/development, izinkan SSL self-signed
+                String serverUrl = getServerUrl();
+                String errorUrl = error.getUrl();
+                if (serverUrl.startsWith("https://") && errorUrl.startsWith(serverUrl)) {
+                    // Self-signed cert pada server yang dikonfigurasi — izinkan
+                    Log.w(TAG, "SSL error on configured server, proceeding: " + error.getPrimaryError());
+                    handler.proceed();
+                } else {
+                    // URL tidak dikenal — tolak
+                    Log.e(TAG, "SSL error on unknown URL, cancelling: " + errorUrl);
+                    handler.cancel();
                 }
             }
         });
@@ -369,55 +489,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupSwipeRefresh() {
-        // Konfigurasi warna indikator refresh
-        swipeRefreshLayout.setColorSchemeColors(
-                getResources().getColor(android.R.color.holo_blue_dark),
-                getResources().getColor(android.R.color.holo_green_dark),
-                getResources().getColor(android.R.color.holo_orange_dark),
-                getResources().getColor(android.R.color.holo_red_dark)
-        );
-
-        // Set background indikator
-        swipeRefreshLayout.setProgressBackgroundColorSchemeColor(
-                getResources().getColor(android.R.color.white)
-        );
-
-        // Set listener untuk swipe refresh
-        swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
-            @Override
-            public void onRefresh() {
-                refreshWebView();
-            }
-        });
-    }
-
-    private void refreshWebView() {
-        String currentUrl = webView.getUrl();
-
-        if (currentUrl != null && !currentUrl.equals("about:blank")) {
-            // Refresh halaman saat ini
-            webView.reload();
-        } else {
-            // Jika tidak ada URL, load URL dari settings
-            String serverUrl = getServerUrl();
-            if (!serverUrl.isEmpty()) {
-                webView.loadUrl(serverUrl);
-            } else {
-                // Jika tidak ada URL, tampilkan pesan
-                showToast("Tidak ada URL untuk direfresh");
-                swipeRefreshLayout.setRefreshing(false);
-            }
-        }
-
-        // Set timeout untuk memastikan indikator hilang (max 10 detik)
-        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (swipeRefreshLayout.isRefreshing()) {
-                    swipeRefreshLayout.setRefreshing(false);
-                }
-            }
-        }, 10000);
+        // Nonaktifkan swipe refresh sepenuhnya untuk menghindari konflik dengan scroll
+        swipeRefreshLayout.setEnabled(false);
     }
 
     private boolean handleFileChooser(ValueCallback<Uri[]> filePathCallback,
@@ -580,11 +653,150 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void showWebViewError(String error) {
+    private void handlePageLoadError(String error) {
+        hasWebViewError = true;
+        // Hentikan refresh indicator
+        if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
+            swipeRefreshLayout.setRefreshing(false);
+        }
+        // Sanitize error message untuk HTML display
+        String safeError = error.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
+        // Tampilkan error page dengan auto-retry
+        String serverUrl = getServerUrl();
+        // Validasi URL scheme untuk keamanan
+        if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
+            serverUrl = "http://" + serverUrl;
+        }
+        String safeUrl = serverUrl.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
         runOnUiThread(() -> {
-            Toast.makeText(MainActivity.this,
-                    "Error memuat halaman: " + error, Toast.LENGTH_LONG).show();
+            webView.loadDataWithBaseURL(null,
+                    "<html><body style='background:#0f172a;color:white;text-align:center;padding-top:30%;font-family:sans-serif;'>"
+                            + "<h2>⚠️ Tidak Dapat Terhubung</h2>"
+                            + "<p style='color:#94a3b8;margin:10px 20px;'>" + safeError + "</p>"
+                            + "<p style='color:#64748b;font-size:14px;'>Mencoba ulang otomatis...</p>"
+                            + "<button onclick='window.location.href=\"" + safeUrl + "\"' "
+                            + "style='margin-top:20px;padding:12px 32px;background:#3b82f6;color:white;"
+                            + "border:none;border-radius:8px;font-size:16px;cursor:pointer;'>🔄 Coba Lagi</button>"
+                            + "<p style='color:#475569;font-size:12px;margin-top:20px;'>Server: " + safeUrl + "</p>"
+                            + "</body></html>",
+                    "text/html", "UTF-8", null);
         });
+        // Schedule auto-retry
+        mainHandler.removeCallbacks(autoRetryRunnable);
+        mainHandler.postDelayed(autoRetryRunnable, ERROR_AUTO_RETRY_INTERVAL);
+    }
+
+    private void retryLoadPage() {
+        if (!hasWebViewError) return;
+        String serverUrl = getServerUrl();
+        if (serverUrl.isEmpty()) return;
+
+        Log.i(TAG, "Auto-retrying page load: " + serverUrl);
+        runOnUiThread(() -> {
+            if (webView != null) {
+                webView.loadUrl(serverUrl);
+            }
+        });
+    }
+
+    // ==================== Network Monitoring ====================
+
+    private void setupNetworkMonitoring() {
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) return;
+
+        // Check initial network state
+        NetworkCapabilities caps = connectivityManager.getNetworkCapabilities(
+                connectivityManager.getActiveNetwork());
+        isNetworkAvailable = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        isNetworkValidated = caps != null && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(@NonNull Network network) {
+                Log.i(TAG, "Network available");
+                boolean wasUnavailable = !isNetworkAvailable;
+                isNetworkAvailable = true;
+
+                if (wasUnavailable || hasWebViewError) {
+                    scheduleNetworkReload();
+                }
+            }
+
+            @Override
+            public void onLost(@NonNull Network network) {
+                Log.w(TAG, "Network lost");
+                isNetworkAvailable = false;
+                isNetworkValidated = false;
+            }
+
+            @Override
+            public void onCapabilitiesChanged(@NonNull Network network,
+                                               @NonNull NetworkCapabilities capabilities) {
+                boolean nowValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+                boolean wasNotValidated = !isNetworkValidated;
+                isNetworkValidated = nowValidated;
+
+                // Hanya reload saat transisi dari non-validated ke validated
+                if (nowValidated && wasNotValidated && hasWebViewError) {
+                    scheduleNetworkReload();
+                }
+            }
+        };
+
+        NetworkRequest networkRequest = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build();
+        connectivityManager.registerNetworkCallback(networkRequest, networkCallback);
+    }
+
+    private void scheduleNetworkReload() {
+        // Hapus reload sebelumnya untuk menghindari duplikasi
+        mainHandler.removeCallbacks(networkReloadRunnable);
+        mainHandler.postDelayed(networkReloadRunnable, NETWORK_RELOAD_DELAY);
+    }
+
+    private void reloadWebViewAfterNetworkChange() {
+        if (hasWebViewError && webView != null) {
+            Log.i(TAG, "Network restored — reloading WebView");
+            webView.clearCache(false);
+            retryLoadPage();
+        }
+    }
+
+    // ==================== WebView Health Check ====================
+
+    private void startWebViewHealthCheck() {
+        mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkWebViewHealth();
+                mainHandler.postDelayed(this, WEBVIEW_HEALTH_CHECK_INTERVAL);
+            }
+        }, WEBVIEW_HEALTH_CHECK_INTERVAL);
+    }
+
+    private void checkWebViewHealth() {
+        if (webView == null || hasWebViewError) return;
+
+        String currentUrl = webView.getUrl();
+        // Skip health check jika WebView menampilkan halaman internal
+        if (currentUrl == null || currentUrl.startsWith("data:") || currentUrl.equals("about:blank")) {
+            return;
+        }
+
+        // Evaluasi JavaScript sederhana untuk cek apakah WebView masih responsif
+        webView.evaluateJavascript("(function() { return document.readyState; })()",
+                value -> {
+                    if (value == null || value.equals("null")) {
+                        Log.w(TAG, "WebView health check: unresponsive, reloading");
+                        hasWebViewError = true;
+                        retryLoadPage();
+                    }
+                });
     }
 
     private void loadWebViewUrl() {
@@ -604,6 +816,36 @@ public class MainActivity extends AppCompatActivity {
                 swipeRefreshLayout.setRefreshing(false);
             }
         }
+    }
+
+    private void registerFcmTokenIfNeeded(String url) {
+        // Only register FCM token on non-login pages (indicates user is logged in)
+        if (url.contains("/login") || url.contains("/register")) {
+            return;
+        }
+        String serverUrl = getServerUrl();
+        if (serverUrl.isEmpty()) return;
+
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+            if (!task.isSuccessful()) {
+                Log.w(TAG, "FCM token retrieval failed", task.getException());
+                return;
+            }
+            String token = task.getResult();
+            if (token == null || token.isEmpty()) return;
+
+            // Save locally
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            String savedToken = prefs.getString("fcm_token", "");
+            if (token.equals(savedToken)) return; // Already registered
+            prefs.edit().putString("fcm_token", token).apply();
+
+            // Send to server via JavaScript (uses existing session cookies)
+            String js = "fetch('/api/fcm/register', {method:'POST', headers:{'Content-Type':'application/json'}, "
+                    + "body:JSON.stringify({fcm_token:'" + token.replace("'", "\\'") + "'})}).catch(function(){});";
+            mainHandler.post(() -> webView.evaluateJavascript(js, null));
+            Log.i(TAG, "FCM token registered with server");
+        });
     }
 
     // JavaScript Bridge
@@ -646,10 +888,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void openSettings() {
-            runOnUiThread(() -> {
-                settingsVisible = true;
-                settingsPanel.setVisibility(View.VISIBLE);
-            });
+            runOnUiThread(() -> MainActivity.this.openSettings());
         }
 
         @JavascriptInterface
@@ -679,18 +918,49 @@ public class MainActivity extends AppCompatActivity {
 
     // Settings Management
     private void toggleSettings() {
-        settingsVisible = !settingsVisible;
-        settingsPanel.setVisibility(settingsVisible ? View.VISIBLE : View.GONE);
-
         if (settingsVisible) {
-            loadSettings();
-            loadPairedPrinters();
+            closeSettings();
+        } else {
+            openSettings();
         }
+    }
+
+    private void openSettings() {
+        settingsVisible = true;
+        loadSettings();
+        loadPairedPrinters();
+
+        // Show transparent backdrop for tap-to-close
+        settingsBackdrop.setVisibility(View.VISIBLE);
+
+        // Slide panel in from right
+        settingsPanel.setVisibility(View.VISIBLE);
+        settingsPanel.animate()
+                .translationX(0)
+                .setDuration(300)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void closeSettings() {
+        settingsVisible = false;
+        float slideOffset = getResources().getDimension(R.dimen.settings_panel_slide_offset);
+
+        // Hide backdrop
+        settingsBackdrop.setVisibility(View.GONE);
+
+        // Slide panel out to right
+        settingsPanel.animate()
+                .translationX(slideOffset)
+                .setDuration(250)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() -> settingsPanel.setVisibility(View.GONE))
+                .start();
     }
 
     private void loadSettings() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        editServerUrl.setText(prefs.getString("server_url", "http://10.111.108.37:8000"));
+        editServerUrl.setText(prefs.getString("server_url", DEFAULT_SERVER_URL));
         editUsername.setText(prefs.getString("username", "admin"));
         editPassword.setText(prefs.getString("password", "Asecc123@"));
         editLanAddress.setText(prefs.getString("lan_printer_address", "10.111.108.37:9100"));
@@ -704,6 +974,15 @@ public class MainActivity extends AppCompatActivity {
             radioPrinterType.check(R.id.radioBluetooth);
             sectionBluetooth.setVisibility(View.VISIBLE);
             sectionLan.setVisibility(View.GONE);
+        }
+
+        // Load paper width setting
+        int paperWidth = prefs.getInt("paper_width", 80);
+        switch (paperWidth) {
+            case 58: spinnerPaperWidth.setSelection(0); break;
+            case 80: spinnerPaperWidth.setSelection(1); break;
+            case 110: spinnerPaperWidth.setSelection(2); break;
+            default: spinnerPaperWidth.setSelection(1); break; // 80mm
         }
     }
 
@@ -736,6 +1015,17 @@ public class MainActivity extends AppCompatActivity {
         boolean isLan = radioPrinterType.getCheckedRadioButtonId() == R.id.radioLan;
         editor.putString("printer_type", isLan ? "lan" : "bluetooth");
 
+        // Save paper width
+        int paperWidthSelection = spinnerPaperWidth.getSelectedItemPosition();
+        int paperWidth;
+        switch (paperWidthSelection) {
+            case 0: paperWidth = 58; break;
+            case 1: paperWidth = 80; break;
+            case 2: paperWidth = 110; break;
+            default: paperWidth = 80; break;
+        }
+        editor.putInt("paper_width", paperWidth);
+
         if (isLan) {
             String lanAddress = editLanAddress.getText().toString().trim();
             if (lanAddress.isEmpty()) {
@@ -758,8 +1048,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         showToast("Pengaturan disimpan");
-        settingsPanel.setVisibility(View.GONE);
-        settingsVisible = false;
+        closeSettings();
 
         // Restart service if running
         if (isServiceRunning.get()) {
@@ -960,27 +1249,18 @@ public class MainActivity extends AppCompatActivity {
     private void updateServiceStatus(boolean isRunning, int printed, int failed, String status) {
         runOnUiThread(() -> {
             if (isRunning) {
-                txtServiceStatus.setText("🟢 PRINT SERVICE AKTIF");
-                txtServiceStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
-                btnToggleService.setText("⏹ STOP");
+                txtServiceStatus.setText("🟢");
+                txtServiceStatus.setVisibility(View.VISIBLE);
+                btnToggleService.setText("⏹");
                 btnToggleService.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#dc2626")));
-
-                String stats = String.format("📄 Cetak: %d  |  ❌ Gagal: %d", printed, failed);
-                if (status != null && !status.isEmpty()) {
-                    stats = status + " | " + stats;
-                }
-                if (txtPrintStats != null) {
-                    txtPrintStats.setText(stats);
-                    txtPrintStats.setVisibility(View.VISIBLE);
-                }
             } else {
-                txtServiceStatus.setText("🔴 PRINT SERVICE MATI");
-                txtServiceStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_light));
-                btnToggleService.setText("▶ START");
+                txtServiceStatus.setText("🔴");
+                txtServiceStatus.setVisibility(View.GONE);
+                btnToggleService.setText("▶");
                 btnToggleService.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#059669")));
-                if (txtPrintStats != null) {
-                    txtPrintStats.setVisibility(View.GONE);
-                }
+            }
+            if (txtPrintStats != null) {
+                txtPrintStats.setVisibility(View.GONE);
             }
         });
     }
@@ -1067,7 +1347,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Helpers
     private String getServerUrl() {
-        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("server_url", "");
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getString("server_url", DEFAULT_SERVER_URL);
     }
 
     private void showToast(String message) {
@@ -1097,7 +1377,16 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "Error unregistering receiver: " + e.getMessage());
         }
 
-        // Remove callbacks
+        // Unregister network callback
+        if (connectivityManager != null && networkCallback != null) {
+            try {
+                connectivityManager.unregisterNetworkCallback(networkCallback);
+            } catch (Exception e) {
+                Log.e(TAG, "Error unregistering network callback: " + e.getMessage());
+            }
+        }
+
+        // Remove callbacks (termasuk auto-retry dan health check)
         mainHandler.removeCallbacksAndMessages(null);
 
         // Shutdown executor
@@ -1117,8 +1406,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         if (settingsVisible) {
-            settingsPanel.setVisibility(View.GONE);
-            settingsVisible = false;
+            closeSettings();
         } else if (webView.canGoBack()) {
             webView.goBack();
         } else {

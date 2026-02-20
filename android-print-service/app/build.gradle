@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    id 'com.google.gms.google-services'
 }
 
 android {
@@ -45,4 +46,8 @@ dependencies {
     // JSON parsing
     implementation 'org.json:json:20231013'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.2.0'
+
+    // Firebase Cloud Messaging (push notifications)
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }

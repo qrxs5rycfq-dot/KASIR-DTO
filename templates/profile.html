@@ -39,7 +39,7 @@
             <div class="lg:col-span-2 space-y-6">
                 <div class="glass-card rounded-2xl p-6">
                     <h3 class="text-lg font-semibold mb-4">Informasi Profil</h3>
-                    <form action="{{ url_for('update_profile') }}" method="POST" class="space-y-4">
+                    <form action="{{ url_for('views.update_profile') }}" method="POST" class="space-y-4">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -74,7 +74,7 @@
                 <!-- Change Password Form -->
                 <div class="glass-card rounded-2xl p-6">
                     <h3 class="text-lg font-semibold mb-4">Ubah Password</h3>
-                    <form action="{{ url_for('profile_change_password') }}" method="POST" class="space-y-4">
+                    <form action="{{ url_for('views.profile_change_password') }}" method="POST" class="space-y-4">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <div>
                             <label class="text-sm text-gray-400 mb-1 block">Password Saat Ini</label>

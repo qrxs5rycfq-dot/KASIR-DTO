@@ -24,7 +24,18 @@
         
         <!-- Filter -->
         <div class="glass-card rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-start md:items-center gap-4">
-            <form method="GET" action="{{ url_for('expenses') }}" class="flex flex-col md:flex-row items-start md:items-center gap-3 w-full">
+            <form method="GET" action="{{ url_for('views.expenses') }}" class="flex flex-col md:flex-row items-start md:items-center gap-3 w-full">
+                {% if is_admin and branches %}
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm text-gray-400">Cabang:</label>
+                    <select name="branch_id" class="bg-white/5 border border-white/10 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50">
+                        <option value="">Semua Cabang</option>
+                        {% for b in branches %}
+                        <option value="{{ b.id }}" {% if filter_branch_id == b.id|string %}selected{% endif %}>{{ b.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div class="flex items-center space-x-2">
                     <label class="text-sm text-gray-400">Bulan:</label>
                     <input type="month" name="month" value="{{ current_month }}"
@@ -107,7 +118,7 @@
                         <td class="p-4 text-sm text-gray-400">{{ expense.user.full_name or expense.user.username if expense.user else '-' }}</td>
                         <td class="p-4">
                             {% if current_user.has_role('admin') or current_user.has_role('manager') %}
-                            <form action="{{ url_for('expense_delete', expense_id=expense.id) }}" method="POST" 
+                            <form action="{{ url_for('views.expense_delete', expense_id=expense.id) }}" method="POST" 
                                   onsubmit="return confirm('Hapus pengeluaran ini?')">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm">
@@ -135,7 +146,7 @@
 <div id="add-expense-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
     <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
         <h3 class="text-lg font-semibold mb-4">Tambah Pengeluaran</h3>
-        <form action="{{ url_for('expense_add') }}" method="POST">
+        <form action="{{ url_for('views.expense_add') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="space-y-4">
                 <div>

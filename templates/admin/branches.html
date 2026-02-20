@@ -101,7 +101,7 @@
                             class="py-2 px-3 rounded-lg {% if branch.is_active %}bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20{% else %}bg-green-500/10 text-green-400 hover:bg-green-500/20{% endif %} text-sm">
                         <i class="fas {% if branch.is_active %}fa-pause{% else %}fa-play{% endif %}"></i>
                     </button>
-                    <form action="{{ url_for('admin_branch_delete', branch_id=branch.id) }}" method="POST" 
+                    <form action="{{ url_for('admin.admin_branch_delete', branch_id=branch.id) }}" method="POST" 
                           onsubmit="return confirm('Hapus cabang {{ branch.name }}?')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="py-2 px-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-sm">
@@ -126,7 +126,7 @@
 <div id="add-branch-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
     <div class="glass-card rounded-2xl p-6 w-full max-w-md animate-fade-in">
         <h3 class="text-lg font-semibold mb-4">Tambah Cabang Baru</h3>
-        <form action="{{ url_for('admin_branch_create') }}" method="POST">
+        <form action="{{ url_for('admin.admin_branch_create') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="space-y-4">
                 <div>

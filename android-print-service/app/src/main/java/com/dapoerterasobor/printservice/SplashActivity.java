@@ -3,6 +3,8 @@ package com.dapoerterasobor.printservice;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -17,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity;
  * SplashActivity - Splash screen with brand logo.
  * Shows for 2 seconds then launches MainActivity.
  * Also handles initial configuration check.
+ * Auto-detects tablet and uses landscape orientation.
  */
 @SuppressLint("CustomSplashScreen")
 public class SplashActivity extends AppCompatActivity {
@@ -24,6 +27,7 @@ public class SplashActivity extends AppCompatActivity {
     private static final String TAG = "SplashActivity";
     private static final int SPLASH_DURATION_MS = 2000;
     private static final String PREFS_NAME = "PrintServicePrefs";
+    private static final String DEFAULT_SERVER_URL = "http://10.111.108.37:8000";
 
     private ProgressBar progressBar;
     private TextView txtStatus;
@@ -33,6 +37,11 @@ public class SplashActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Auto-detect tablet and set landscape orientation
+        if (isTablet()) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        }
 
         // Enable edge-to-edge display
         getWindow().setFlags(
@@ -65,7 +74,7 @@ public class SplashActivity extends AppCompatActivity {
 
     private void checkConfiguration() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String serverUrl = prefs.getString("server_url", "");
+        String serverUrl = prefs.getString("server_url", DEFAULT_SERVER_URL);
 
         if (serverUrl.isEmpty()) {
             updateStatus("🔧 Menunggu konfigurasi...");
@@ -118,5 +127,10 @@ public class SplashActivity extends AppCompatActivity {
         super.onDestroy();
         isActivityActive = false;
         handler.removeCallbacksAndMessages(null);
+    }
+
+    private boolean isTablet() {
+        int screenLayout = getResources().getConfiguration().screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK;
+        return screenLayout >= Configuration.SCREENLAYOUT_SIZE_LARGE;
     }
 }

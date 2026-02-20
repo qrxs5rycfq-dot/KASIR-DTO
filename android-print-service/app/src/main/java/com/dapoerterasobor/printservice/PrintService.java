@@ -477,29 +477,32 @@ public class PrintService extends Service {
     }
 
     private void onPrinterConnected(boolean wasConnected) {
-        // Reset flag pengecekan jika ini adalah koneksi baru
-        if (!wasConnected) {
-            hasCheckedPendingAfterConnect = false;
-            Log.i(TAG, "New printer connection detected, resetting check flag");
-        }
+        // Selalu reset flag agar pending print selalu dicek saat printer terhubung
+        hasCheckedPendingAfterConnect = false;
+        Log.i(TAG, "Printer connected (wasConnected=" + wasConnected + "), resetting check flag");
 
-        // Cek pending print jika:
-        // 1. Ini adalah koneksi baru (dari status disconnected)
-        // 2. Belum pernah cek pending print setelah koneksi ini
-        if (!wasConnected && !hasCheckedPendingAfterConnect) {
-            Log.i(TAG, "🔍 New printer connection detected, scheduling pending print check with retry...");
+        // Selalu cek pending print saat printer terhubung
+        Log.i(TAG, "🔍 Printer connected, scheduling pending print check with retry...");
 
-            // Delay agar printer siap
-            mainHandler.postDelayed(() -> {
-                if (isPrinterConnected && !hasCheckedPendingAfterConnect) {
-                    Log.i(TAG, "🔍 Checking for pending prints after printer connection");
-                    fetchPendingPrintsWithRetry(MAX_RETRY_COUNT);
-                }
-            }, PRINT_CHECK_DELAY);
-        }
-
-        // Proses job yang tertunda karena printer disconnect
+        // Proses job yang tertunda di local queue terlebih dahulu
         processQueuedPrintJobs();
+
+        // Delay singkat lalu fetch pending prints dari server
+        mainHandler.postDelayed(() -> {
+            if (isPrinterConnected && !hasCheckedPendingAfterConnect) {
+                Log.i(TAG, "🔍 Checking for pending prints after printer connection");
+                fetchPendingPrintsWithRetry(MAX_RETRY_COUNT);
+            }
+        }, PRINT_CHECK_DELAY);
+
+        // Tambahan: cek lagi setelah 5 detik untuk memastikan semua pending terproses
+        mainHandler.postDelayed(() -> {
+            if (isPrinterConnected && isServiceRunning.get()) {
+                Log.i(TAG, "🔍 Secondary pending print check after printer connection");
+                fetchPendingPrints();
+                processQueuedPrintJobs();
+            }
+        }, 5000);
     }
 
     private void fetchPendingPrintsWithRetry(int maxRetries) {
@@ -810,10 +813,30 @@ public class PrintService extends Service {
             }
             return bytes;
         } else {
+            // Deteksi paper width dari settings
+            // 58mm = 32 chars, 80mm = 48 chars, 110mm = 64 chars
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            int paperWidth = prefs.getInt("paper_width", 80);
+            int charWidth;
+            switch (paperWidth) {
+                case 58: charWidth = 32; break;
+                case 110: charWidth = 64; break;
+                default: charWidth = 48; break;  // 80mm default
+            }
+
             StringBuilder sb = new StringBuilder();
             byte[] initCmd = {0x1B, 0x40};
             byte[] cutCmd = {0x1D, 0x56, 0x00};
             byte[] feedCmd = {0x1B, 0x64, 0x04};
+
+            // ESC/POS alignment commands
+            byte[] alignLeft = {0x1B, 0x61, 0x00};
+            byte[] alignCenter = {0x1B, 0x61, 0x01};
+            byte[] alignRight = {0x1B, 0x61, 0x02};
+            byte[] boldOn = {0x1B, 0x45, 0x01};
+            byte[] boldOff = {0x1B, 0x45, 0x00};
+            byte[] doubleHeight = {0x1B, 0x21, 0x10};
+            byte[] normalSize = {0x1B, 0x21, 0x00};
 
             sb.append(new String(initCmd, StandardCharsets.ISO_8859_1));
 
@@ -823,23 +846,56 @@ public class PrintService extends Service {
 
                 String type = cmd.optString("type", "text");
                 String value = cmd.optString("value", "");
+                String align = cmd.optString("align", "");
+                boolean bold = cmd.optBoolean("bold", false);
+                String size = cmd.optString("size", "");
 
                 switch (type) {
                     case "text":
+                        // Sesuaikan separator dengan paper width
+                        if (isAllSameChar(value, '=')) {
+                            value = repeatChar('=', charWidth);
+                        } else if (isAllSameChar(value, '-')) {
+                            value = repeatChar('-', charWidth);
+                        }
+                        // Handle alignment
+                        if ("center".equals(align)) {
+                            sb.append(new String(alignCenter, StandardCharsets.ISO_8859_1));
+                        } else if ("right".equals(align)) {
+                            sb.append(new String(alignRight, StandardCharsets.ISO_8859_1));
+                        }
+                        // Handle bold
+                        if (bold) {
+                            sb.append(new String(boldOn, StandardCharsets.ISO_8859_1));
+                        }
+                        // Handle size
+                        if ("large".equals(size)) {
+                            sb.append(new String(doubleHeight, StandardCharsets.ISO_8859_1));
+                        }
                         sb.append(value).append("\n");
+                        // Reset formatting
+                        if ("large".equals(size)) {
+                            sb.append(new String(normalSize, StandardCharsets.ISO_8859_1));
+                        }
+                        if (bold) {
+                            sb.append(new String(boldOff, StandardCharsets.ISO_8859_1));
+                        }
+                        if ("center".equals(align) || "right".equals(align)) {
+                            sb.append(new String(alignLeft, StandardCharsets.ISO_8859_1));
+                        }
                         break;
                     case "bold_text":
-                        sb.append(new String(new byte[]{0x1B, 0x45, 0x01}, StandardCharsets.ISO_8859_1));
+                        sb.append(new String(boldOn, StandardCharsets.ISO_8859_1));
                         sb.append(value).append("\n");
-                        sb.append(new String(new byte[]{0x1B, 0x45, 0x00}, StandardCharsets.ISO_8859_1));
+                        sb.append(new String(boldOff, StandardCharsets.ISO_8859_1));
                         break;
                     case "center":
-                        sb.append(new String(new byte[]{0x1B, 0x61, 0x01}, StandardCharsets.ISO_8859_1));
+                        sb.append(new String(alignCenter, StandardCharsets.ISO_8859_1));
                         sb.append(value).append("\n");
-                        sb.append(new String(new byte[]{0x1B, 0x61, 0x00}, StandardCharsets.ISO_8859_1));
+                        sb.append(new String(alignLeft, StandardCharsets.ISO_8859_1));
                         break;
                     case "separator":
-                        sb.append("================================\n");
+                        sb.append(repeatChar('=', charWidth)).append("\n");
                         break;
                     case "cut":
                         sb.append(new String(feedCmd, StandardCharsets.ISO_8859_1));
@@ -850,6 +906,28 @@ public class PrintService extends Service {
 
             return sb.toString().getBytes(StandardCharsets.ISO_8859_1);
         }
+    }
+
+    /**
+     * Cek apakah string hanya berisi karakter yang sama (untuk deteksi separator)
+     */
+    private boolean isAllSameChar(String s, char c) {
+        if (s == null || s.isEmpty()) return false;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) != c) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Buat string dengan karakter yang diulang sejumlah n kali
+     */
+    private String repeatChar(char c, int n) {
+        StringBuilder sb = new StringBuilder(n);
+        for (int i = 0; i < n; i++) {
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
     private void reportPrintSuccess(int printId) {

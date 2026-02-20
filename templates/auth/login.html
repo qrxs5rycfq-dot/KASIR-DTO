@@ -22,7 +22,7 @@
         <div class="glass-card rounded-2xl p-8 animate-fade-in" style="animation-delay: 0.1s">
             <h2 class="text-2xl font-semibold text-center mb-6">Selamat Datang</h2>
             
-            <form method="POST" action="{{ url_for('login') }}" class="space-y-5">
+            <form method="POST" action="{{ url_for('auth.login') }}" class="space-y-5">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <!-- Username -->
                 <div>
@@ -79,7 +79,7 @@
             <!-- Register Link -->
             <p class="text-center text-gray-400">
                 Belum punya akun?
-                <a href="{{ url_for('register') }}" class="text-primary-400 hover:text-primary-300 font-medium">Daftar sekarang</a>
+                <a href="{{ url_for('auth.register') }}" class="text-primary-400 hover:text-primary-300 font-medium">Daftar sekarang</a>
             </p>
         </div>
         
