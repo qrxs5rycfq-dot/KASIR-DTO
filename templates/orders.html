@@ -203,8 +203,8 @@ async function viewOrder(orderId) {
                                 <div>
                                     <p class="font-medium">${escapeHtml(item.name)}</p>
                                     <p class="text-xs text-gray-400">
-                                        ${item.spice_level ? 'Pedas: ' + escapeHtml(item.spice_level) : ''}
-                                        ${item.temperature ? ' | Suhu: ' + escapeHtml(item.temperature) : ''}
+                                        ${item.spice_level && item.spice_level !== 'none' ? 'Pedas: ' + escapeHtml({none:'Tdk Pedas',medium:'Sedang',hot:'Pedas'}[item.spice_level] || item.spice_level) : ''}
+                                        ${item.temperature && item.temperature !== 'normal' ? ' | Suhu: ' + escapeHtml({hot:'Panas',cold:'Dingin'}[item.temperature] || item.temperature) : ''}
                                     </p>
                                 </div>
                                 <div class="text-right">

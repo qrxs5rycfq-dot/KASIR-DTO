@@ -242,12 +242,9 @@
         
         <div id="spice-options" class="mb-4 hidden">
             <label class="text-sm text-gray-400 mb-2 block">Tingkat Kepedasan</label>
-            <div class="grid grid-cols-5 gap-2">
+            <div class="grid grid-cols-3 gap-2">
                 <button onclick="selectSpice('none')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="none">
                     Tidak Pedas
-                </button>
-                <button onclick="selectSpice('mild')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="mild">
-                    Sedikit
                 </button>
                 <button onclick="selectSpice('medium')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="medium">
                     Sedang
@@ -255,23 +252,17 @@
                 <button onclick="selectSpice('hot')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="hot">
                     Pedas
                 </button>
-                <button onclick="selectSpice('extra_hot')" class="spice-btn py-2 rounded-lg bg-white/5 text-gray-300 text-xs hover:bg-white/10 border border-transparent" data-level="extra_hot">
-                    Extra Pedas
-                </button>
             </div>
         </div>
         
         <div id="temp-options" class="mb-4 hidden">
             <label class="text-sm text-gray-400 mb-2 block">Suhu Minuman</label>
-            <div class="grid grid-cols-3 gap-2">
+            <div class="grid grid-cols-2 gap-2">
                 <button onclick="selectTemp('hot')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="hot">
                     <i class="fas fa-mug-hot text-orange-400 mr-2"></i>Panas
                 </button>
                 <button onclick="selectTemp('cold')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="cold">
                     <i class="fas fa-snowflake text-blue-400 mr-2"></i>Dingin
-                </button>
-                <button onclick="selectTemp('normal')" class="temp-btn py-3 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 border border-transparent" data-temp="normal">
-                    <i class="fas fa-glass-water text-gray-400 mr-2"></i>Normal
                 </button>
             </div>
         </div>
@@ -441,15 +432,19 @@ document.getElementById('search-menu').addEventListener('input', function(e) {
 function addToCart(id, name, price, hasSpicy, hasTemp) {
     currentItem = { id, name, price, hasSpicy, hasTemp };
     
-    if (hasSpicy || hasTemp) {
+    // Temperature only shown for "teh manis"
+    const isTehManis = name.toLowerCase().includes('teh manis');
+    const showTemp = hasTemp && isTehManis;
+    
+    if (hasSpicy || showTemp) {
         document.getElementById('modal-item-name').textContent = name;
         document.getElementById('spice-options').classList.toggle('hidden', !hasSpicy);
-        document.getElementById('temp-options').classList.toggle('hidden', !hasTemp);
+        document.getElementById('temp-options').classList.toggle('hidden', !showTemp);
         document.getElementById('options-modal').classList.remove('hidden');
         document.getElementById('options-modal').classList.add('flex');
         
         selectedSpice = 'none';
-        selectedTemp = 'normal';
+        selectedTemp = 'hot';
         document.querySelectorAll('.spice-btn, .temp-btn').forEach(btn => {
             btn.classList.remove('border-primary-500', 'bg-primary-500/20');
             btn.classList.add('border-transparent');
@@ -543,8 +538,8 @@ function updateCartUI() {
                     <div class="flex-1">
                         <h4 class="font-medium text-sm">${escapeHtml(item.name)}</h4>
                         <p class="text-primary-400 text-sm">${formatCurrency(item.price)}</p>
-                        ${item.spice_level ? `<span class="text-xs text-red-400"><i class="fas fa-pepper-hot mr-1"></i>${escapeHtml(item.spice_level)}</span>` : ''}
-                        ${item.temperature ? `<span class="text-xs text-blue-400 ml-2"><i class="fas fa-thermometer-half mr-1"></i>${escapeHtml(item.temperature)}</span>` : ''}
+                        ${item.spice_level && item.spice_level !== 'none' ? `<span class="text-xs text-red-400"><i class="fas fa-pepper-hot mr-1"></i>${escapeHtml({none:'Tdk Pedas',medium:'Sedang',hot:'Pedas'}[item.spice_level] || item.spice_level)}</span>` : ''}
+                        ${item.temperature && item.temperature !== 'normal' ? `<span class="text-xs text-blue-400 ml-2"><i class="fas fa-thermometer-half mr-1"></i>${escapeHtml({hot:'Panas',cold:'Dingin'}[item.temperature] || item.temperature)}</span>` : ''}
                         ${item.notes ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(item.notes)}</p>` : ''}
                     </div>
                     <button onclick="removeFromCart(${parseInt(item.id)})" class="text-red-400 hover:text-red-300">
@@ -1135,8 +1130,8 @@ function buildReceiptCommandsWithCopy(order, copyNum, totalCopies) {
     commands.push(...ESC_POS.ALIGN_LEFT);
     
     // ===== ITEMS =====
-    const spiceLabels = {none:'Tdk Pedas', mild:'Sedikit', medium:'Sedang', hot:'Pedas', extra_hot:'Extra Pedas'};
-    const tempLabels = {hot:'Panas', cold:'Dingin', normal:'Normal'};
+    const spiceLabels = {none:'Tdk Pedas', medium:'Sedang', hot:'Pedas'};
+    const tempLabels = {hot:'Panas', cold:'Dingin'};
     
     if (order.items && order.items.length > 0) {
         for (const item of order.items) {

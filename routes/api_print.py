@@ -165,8 +165,8 @@ def create_print_job(order):
             data.append({"type": "text", "value": title, "align": "center", "bold": True})
             data.append({"type": "text", "value": sep_single(W), "align": "center"})
             
-            spice_labels = {'none': 'Tdk Pedas', 'mild': 'Sedikit', 'medium': 'Sedang', 'hot': 'Pedas', 'extra_hot': 'Extra Pedas'}
-            temp_labels = {'hot': 'Panas', 'cold': 'Dingin', 'normal': 'Normal'}
+            spice_labels = {'none': 'Tdk Pedas', 'medium': 'Sedang', 'hot': 'Pedas'}
+            temp_labels = {'hot': 'Panas', 'cold': 'Dingin'}
             
             for item in order.items:
                 # Nama item
