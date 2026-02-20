@@ -693,7 +693,7 @@ def analytics():
     profit_margin = round((net_profit / month_revenue * 100), 1) if month_revenue > 0 else 0
     
     return render_template('analytics.html',
-        is_admin=get_user_branch_id() is None,
+        is_admin=current_user.has_role('admin'),
         today_revenue=today_revenue,
         yesterday_revenue=yesterday_revenue,
         revenue_growth=revenue_growth,
