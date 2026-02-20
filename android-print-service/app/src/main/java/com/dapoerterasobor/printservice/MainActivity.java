@@ -980,6 +980,7 @@ public class MainActivity extends AppCompatActivity {
         int paperWidth = prefs.getInt("paper_width", 80);
         switch (paperWidth) {
             case 58: spinnerPaperWidth.setSelection(0); break;
+            case 80: spinnerPaperWidth.setSelection(1); break;
             case 110: spinnerPaperWidth.setSelection(2); break;
             default: spinnerPaperWidth.setSelection(1); break; // 80mm
         }
@@ -1019,6 +1020,7 @@ public class MainActivity extends AppCompatActivity {
         int paperWidth;
         switch (paperWidthSelection) {
             case 0: paperWidth = 58; break;
+            case 1: paperWidth = 80; break;
             case 2: paperWidth = 110; break;
             default: paperWidth = 80; break;
         }
