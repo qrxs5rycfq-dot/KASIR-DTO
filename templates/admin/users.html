@@ -128,16 +128,16 @@
             </div>
             <div>
                 <label class="text-sm text-gray-400 mb-1 block">Role</label>
-                <select name="role_id" required class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
+                <select name="role_id" id="add-role" required onchange="toggleBranchForRole('add')" class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
                     {% for role in roles %}
-                    <option value="{{ role.id }}">{{ role.name|title }}</option>
+                    <option value="{{ role.id }}" data-name="{{ role.name }}">{{ role.name|title }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
                 <label class="text-sm text-gray-400 mb-1 block">Cabang</label>
                 <select name="branch_id" id="add-user-branch" class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
-                    <option value="">Semua Cabang (Admin)</option>
+                    <option value="" id="add-all-branch-opt" style="display:none">Semua Cabang (Admin)</option>
                     {% for branch in branches %}
                     <option value="{{ branch.id }}">{{ branch.name }} ({{ branch.code }})</option>
                     {% endfor %}
@@ -215,19 +215,17 @@
             </div>
             <div>
                 <label class="text-sm text-gray-400 mb-1 block">Role</label>
-                <select name="role_id" id="edit-role" required class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
+                <select name="role_id" id="edit-role" required onchange="toggleBranchForRole('edit')" class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
                     {% for role in roles %}
-                    <option value="{{ role.id }}">{{ role.name|title }}</option>
+                    <option value="{{ role.id }}" data-name="{{ role.name }}">{{ role.name|title }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
                 <label class="text-sm text-gray-400 mb-1 block">Cabang</label>
                 <select name="branch_id" id="edit-branch" class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
-                    {% if is_owner %}
-                    <option value="">Semua Cabang (Owner)</option>
-                    {% endif %}
-                    {% for branch in all_branches %}
+                    <option value="" id="edit-all-branch-opt" style="display:none">Semua Cabang (Admin)</option>
+                    {% for branch in branches %}
                     <option value="{{ branch.id }}">{{ branch.name }} ({{ branch.code }})</option>
                     {% endfor %}
                 </select>
@@ -265,6 +263,20 @@
 </div>
 
 <script>
+function toggleBranchForRole(prefix) {
+    var sel = document.getElementById(prefix === 'add' ? 'add-role' : 'edit-role');
+    var opt = document.getElementById(prefix + '-all-branch-opt');
+    var branchSel = document.getElementById(prefix === 'add' ? 'add-user-branch' : 'edit-branch');
+    var roleName = sel.options[sel.selectedIndex].getAttribute('data-name');
+    if (roleName === 'admin') {
+        opt.style.display = '';
+        branchSel.value = '';
+    } else {
+        opt.style.display = 'none';
+        if (branchSel.value === '') branchSel.selectedIndex = 1;
+    }
+}
+
 function openEditUser(btn) {
     var d = btn.dataset;
     document.getElementById('edit-user-form').action = '/admin/users/' + d.id + '/edit';
@@ -272,6 +284,7 @@ function openEditUser(btn) {
     document.getElementById('edit-username').value = d.username;
     document.getElementById('edit-email').value = d.email;
     document.getElementById('edit-role').value = d.role;
+    toggleBranchForRole('edit');
     document.getElementById('edit-branch').value = d.branch;
     document.getElementById('edit-user-modal').classList.remove('hidden');
 }
