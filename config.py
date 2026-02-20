@@ -40,7 +40,6 @@ class Config:
     
     # Rate limiting config
     RATELIMIT_STORAGE_URI = "memory://"
-    RATELIMIT_DEFAULT = "200 per day;50 per hour"
     RATELIMIT_HEADERS_ENABLED = True
     
     # File upload config
@@ -76,8 +75,6 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     SESSION_COOKIE_SECURE = True  # Require HTTPS in production
-    # More restrictive rate limits for production
-    RATELIMIT_DEFAULT = "100 per day;30 per hour"
 
 config = {
     'development': DevelopmentConfig,
