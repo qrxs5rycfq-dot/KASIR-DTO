@@ -146,7 +146,7 @@ def dashboard():
 
 @views_bp.route('/pos')
 @login_required
-@role_required('admin', 'manager', 'kasir')
+@role_required('manager', 'kasir')
 def pos():
     categories = branch_filter(Category.query.filter_by(is_active=True), Category).order_by(Category.order).all()
     menu_items = branch_filter(MenuItem.query.filter_by(is_available=True), MenuItem).all()
@@ -362,9 +362,9 @@ def expense_delete(expense_id):
 
 @views_bp.route('/kitchen')
 @login_required
-@role_required('admin', 'manager', 'koki', 'kasir')
+@role_required('manager', 'koki', 'kasir')
 def kitchen():
-    """Kitchen display page for authorized staff"""
+    """Kitchen display page for branch staff"""
     return render_template('kitchen.html')
 
 

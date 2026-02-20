@@ -58,20 +58,24 @@
                 <span class="sidebar-label">Dashboard</span>
             </a>
             
+            {% if not current_user.has_role('admin') %}
             <a href="{{ url_for('views.pos') }}" title="Kasir / POS" class="sidebar-link {% if active_page == 'pos' %}active{% endif %} flex items-center space-x-3 px-4 py-3 rounded-xl {% if active_page == 'pos' %}text-white{% else %}text-gray-400 hover:text-white{% endif %}">
                 <i class="fas fa-cash-register w-5"></i>
                 <span class="sidebar-label">Kasir / POS</span>
             </a>
+            {% endif %}
             
             <a href="{{ url_for('views.orders') }}" title="Pesanan" class="sidebar-link {% if active_page == 'orders' %}active{% endif %} flex items-center space-x-3 px-4 py-3 rounded-xl {% if active_page == 'orders' %}text-white{% else %}text-gray-400 hover:text-white{% endif %}">
                 <i class="fas fa-receipt w-5"></i>
                 <span class="sidebar-label">Pesanan</span>
             </a>
             
+            {% if not current_user.has_role('admin') %}
             <a href="{{ url_for('views.kitchen') }}" title="Dapur" class="sidebar-link {% if active_page == 'kitchen' %}active{% endif %} flex items-center space-x-3 px-4 py-3 rounded-xl {% if active_page == 'kitchen' %}text-white{% else %}text-gray-400 hover:text-white{% endif %}">
                 <i class="fas fa-fire-burner w-5"></i>
                 <span class="sidebar-label">Dapur</span>
             </a>
+            {% endif %}
             
             <a href="{{ url_for('views.reports') }}" title="Laporan" class="sidebar-link {% if active_page == 'reports' or active_page == 'income_report' %}active{% endif %} flex items-center space-x-3 px-4 py-3 rounded-xl {% if active_page == 'reports' or active_page == 'income_report' %}text-white{% else %}text-gray-400 hover:text-white{% endif %}">
                 <i class="fas fa-chart-bar w-5"></i>
