@@ -36,6 +36,9 @@ def get_user_branch_id():
     """Get the current user's branch_id. Returns None for admin/owner (sees all)."""
     if not current_user.is_authenticated:
         return None
+    # Admin always sees all branches regardless of DB branch_id
+    if current_user.has_role('admin'):
+        return None
     return current_user.branch_id
 
 

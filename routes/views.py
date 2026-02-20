@@ -87,8 +87,8 @@ def dashboard():
     # Get recent orders
     recent_orders = branch_filter(Order.query, Order).order_by(Order.created_at.desc()).limit(10).all()
     
-    # Get tables status - based on active orders
-    tables = Table.query.filter_by(is_active=True).all()
+    # Get tables status - based on active orders (branch-filtered)
+    tables = branch_filter(Table.query.filter_by(is_active=True), Table).all()
     
     # Calculate occupied tables from current active orders
     active_orders = branch_filter(Order.query, Order).filter(
@@ -127,6 +127,22 @@ def dashboard():
         for mi in low_stock_items:
             mi._branch_stock = mi.stock
     
+    # Per-branch breakdown for admin dashboard
+    branch_stats = []
+    is_admin = current_user.has_role('admin')
+    if is_admin:
+        all_branches = Branch.query.order_by(Branch.name).all()
+        for branch in all_branches:
+            b_orders = [o for o in Order.query.filter(
+                Order.branch_id == branch.id,
+                db.func.date(Order.created_at) == today
+            ).all() if o.payment and o.payment.status == 'paid']
+            branch_stats.append({
+                'name': branch.name,
+                'income': sum(o.total for o in b_orders),
+                'orders': len(b_orders)
+            })
+    
     return render_template('dashboard.html',
                          total_income_today=total_income_today,
                          total_orders_today=total_orders_today,
@@ -137,6 +153,8 @@ def dashboard():
                          recent_orders=recent_orders,
                          tables=tables,
                          low_stock_items=low_stock_items,
+                         branch_stats=branch_stats,
+                         is_admin=is_admin,
                          now=datetime.now())
 
 
