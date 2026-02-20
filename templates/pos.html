@@ -432,14 +432,10 @@ document.getElementById('search-menu').addEventListener('input', function(e) {
 function addToCart(id, name, price, hasSpicy, hasTemp) {
     currentItem = { id, name, price, hasSpicy, hasTemp };
     
-    // Temperature only shown for "teh manis"
-    const isTehManis = name.toLowerCase().includes('teh manis');
-    const showTemp = hasTemp && isTehManis;
-    
-    if (hasSpicy || showTemp) {
+    if (hasSpicy || hasTemp) {
         document.getElementById('modal-item-name').textContent = name;
         document.getElementById('spice-options').classList.toggle('hidden', !hasSpicy);
-        document.getElementById('temp-options').classList.toggle('hidden', !showTemp);
+        document.getElementById('temp-options').classList.toggle('hidden', !hasTemp);
         document.getElementById('options-modal').classList.remove('hidden');
         document.getElementById('options-modal').classList.add('flex');
         

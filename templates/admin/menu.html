@@ -246,16 +246,22 @@
                            class="w-4 h-4 rounded bg-white/5 text-primary-500">
                     <span class="text-sm text-gray-300">Tersedia</span>
                 </label>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Opsi Pesanan</label>
+                <div class="flex flex-wrap gap-4">
                 <label class="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" name="has_spicy_option" id="menu-spicy" 
                            class="w-4 h-4 rounded bg-white/5 text-primary-500">
-                    <span class="text-sm text-gray-300">Pilihan Pedas</span>
+                    <span class="text-sm text-gray-300">🌶️ Tingkat Kepedasan</span>
                 </label>
                 <label class="flex items-center space-x-2 cursor-pointer">
                     <input type="checkbox" name="has_temperature_option" id="menu-temperature" 
                            class="w-4 h-4 rounded bg-white/5 text-primary-500">
-                    <span class="text-sm text-gray-300">Panas/Dingin</span>
+                    <span class="text-sm text-gray-300">🌡️ Suhu Minuman (Panas/Dingin)</span>
                 </label>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Jika tidak dicentang = Normal (tanpa opsi tambahan)</p>
             </div>
             <div class="flex space-x-3 pt-2">
                 <button type="button" onclick="closeModal()" 
