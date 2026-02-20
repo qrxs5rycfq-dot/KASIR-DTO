@@ -132,15 +132,22 @@ def dashboard():
     is_admin = current_user.has_role('admin')
     if is_admin:
         all_branches = Branch.query.order_by(Branch.name).all()
+        # Single efficient query: aggregate income and order count per branch
+        stats_query = db.session.query(
+            Order.branch_id,
+            db.func.count(Order.id).label('order_count'),
+            db.func.coalesce(db.func.sum(Order.total), 0).label('total_income')
+        ).join(Payment).filter(
+            db.func.date(Order.created_at) == today,
+            Payment.status == 'paid'
+        ).group_by(Order.branch_id).all()
+        stats_map = {s[0]: {'orders': s[1], 'income': s[2]} for s in stats_query}
         for branch in all_branches:
-            b_orders = [o for o in Order.query.filter(
-                Order.branch_id == branch.id,
-                db.func.date(Order.created_at) == today
-            ).all() if o.payment and o.payment.status == 'paid']
+            s = stats_map.get(branch.id, {'orders': 0, 'income': 0})
             branch_stats.append({
                 'name': branch.name,
-                'income': sum(o.total for o in b_orders),
-                'orders': len(b_orders)
+                'income': s['income'],
+                'orders': s['orders']
             })
     
     return render_template('dashboard.html',
