@@ -20,6 +20,31 @@
             </button>
         </header>
         
+        {% if branches %}
+        <!-- Branch Selector (Admin only) -->
+        <div class="glass-card rounded-xl p-4 mb-6 flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div class="flex items-center gap-3 flex-1">
+                <i class="fas fa-store text-primary-400"></i>
+                <span class="text-gray-300 font-medium">Cabang:</span>
+                <select onchange="window.location.href='{{ url_for('admin.admin_tables') }}?branch_id='+this.value"
+                        class="bg-white/10 border border-white/20 rounded-lg py-2 px-3 text-white">
+                    {% for b in branches %}
+                    <option value="{{ b.id }}" {% if b.id == selected_branch_id %}selected{% endif %}>{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button onclick="document.getElementById('share-table-modal').classList.remove('hidden')" 
+                    class="px-4 py-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-lg text-sm font-medium">
+                <i class="fas fa-share-alt mr-2"></i>Salin Meja ke Cabang Lain
+            </button>
+        </div>
+        {% elif selected_branch_id %}
+        <div class="glass-card rounded-xl p-3 mb-6 flex items-center gap-3">
+            <i class="fas fa-store text-primary-400"></i>
+            <span class="text-gray-300">Cabang: <strong class="text-white">{{ current_user.branch.name if current_user.branch else 'Pusat' }}</strong></span>
+        </div>
+        {% endif %}
+
         <!-- Legend -->
         <div class="glass-card rounded-2xl p-4 mb-6 flex items-center space-x-6">
             <span class="flex items-center"><span class="w-4 h-4 rounded bg-green-500 mr-2"></span>Tersedia</span>
@@ -72,6 +97,39 @@
             </div>
             {% endfor %}
         </div>
+
+        {% if branches %}
+        <!-- Share Tables Modal -->
+        <div id="share-table-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div class="glass-card rounded-2xl p-6 w-full max-w-md mx-4">
+                <h3 class="text-xl font-bold mb-4">Salin Meja ke Cabang Lain</h3>
+                <form method="POST" action="{{ url_for('admin.admin_tables_share') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-4">
+                        <label class="block text-gray-400 text-sm mb-1">Dari Cabang</label>
+                        <select name="from_branch_id" class="w-full bg-white/10 border border-white/20 rounded-lg py-2 px-3 text-white">
+                            {% for b in branches %}
+                            <option value="{{ b.id }}" {% if b.id == selected_branch_id %}selected{% endif %}>{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-400 text-sm mb-1">Ke Cabang</label>
+                        <select name="to_branch_id" class="w-full bg-white/10 border border-white/20 rounded-lg py-2 px-3 text-white">
+                            {% for b in branches %}
+                            <option value="{{ b.id }}">{{ b.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="document.getElementById('share-table-modal').classList.add('hidden')" 
+                                class="flex-1 py-2 bg-white/10 rounded-lg text-gray-300 hover:bg-white/20">Batal</button>
+                        <button type="submit" class="flex-1 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600">Salin Meja</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
     </main>
 </div>
 
@@ -81,6 +139,7 @@
         <h3 class="text-lg font-semibold mb-4">Tambah Meja Baru</h3>
         <form action="{{ url_for('admin.admin_table_add') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="branch_id" value="{{ selected_branch_id or '' }}">
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">Nomor Meja *</label>

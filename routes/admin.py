@@ -230,9 +230,30 @@ def admin_delete_user(user_id):
 @login_required
 @role_required('admin', 'manager')
 def admin_menu():
+    user_bid = get_user_branch_id()
+    branches = None
+    selected_branch_id = user_bid
+
+    if user_bid is None:  # Admin
+        branches = Branch.query.order_by(Branch.name).all()
+        selected_branch_id = request.args.get('branch_id', type=int)
+        if selected_branch_id is None and branches:
+            selected_branch_id = branches[0].id
+
     categories = Category.query.order_by(Category.order).all()
-    menu_items = MenuItem.query.all()
-    return render_template('admin/menu.html', categories=categories, menu_items=menu_items)
+
+    if selected_branch_id:
+        menu_items = MenuItem.query.filter(
+            (MenuItem.branch_id == selected_branch_id) | (MenuItem.branch_id.is_(None))
+        ).all()
+    else:
+        menu_items = MenuItem.query.all()
+
+    return render_template('admin/menu.html',
+                         categories=categories,
+                         menu_items=menu_items,
+                         branches=branches,
+                         selected_branch_id=selected_branch_id)
 
 @admin_bp.route('/uploads/<path:filename>')
 def uploaded_file(filename):
@@ -266,6 +287,10 @@ def admin_create_menu():
     if not image:
         image = "https://via.placeholder.com/300x200?text=No+Image"
 
+    target_branch_id = get_user_branch_id()  # Manager: their branch
+    if target_branch_id is None:  # Admin
+        target_branch_id = request.form.get('branch_id', type=int)
+
     menu_item = MenuItem(
         code=code,
         name=name,
@@ -275,21 +300,29 @@ def admin_create_menu():
         is_popular=is_popular,
         has_spicy_option=has_spicy_option,
         has_temperature_option=has_temperature_option,
-        image=image
+        image=image,
+        branch_id=target_branch_id
     )
 
     db.session.add(menu_item)
     db.session.flush()
 
-    # Create BranchMenuStock entries for all branches (including inactive)
-    branches = Branch.query.all()
-    for branch in branches:
-        bms = BranchMenuStock(branch_id=branch.id, menu_item_id=menu_item.id, stock=100, is_available=True)
+    # Create BranchMenuStock for the target branch
+    if target_branch_id:
+        bms = BranchMenuStock(branch_id=target_branch_id, menu_item_id=menu_item.id, stock=100, is_available=True)
         db.session.add(bms)
+    else:
+        # No branch specified: create for all branches
+        all_branches = Branch.query.all()
+        for branch in all_branches:
+            bms = BranchMenuStock(branch_id=branch.id, menu_item_id=menu_item.id, stock=100, is_available=True)
+            db.session.add(bms)
 
     db.session.commit()
 
     flash('Menu berhasil ditambahkan!', 'success')
+    if target_branch_id:
+        return redirect(url_for('admin.admin_menu', branch_id=target_branch_id))
     return redirect(url_for('admin.admin_menu'))
 
 
@@ -298,6 +331,11 @@ def admin_create_menu():
 @role_required('admin', 'manager')
 def admin_edit_menu(id):
     menu_item = MenuItem.query.get_or_404(id)
+
+    user_bid = get_user_branch_id()
+    if user_bid and menu_item.branch_id != user_bid:
+        flash('Anda tidak memiliki akses untuk mengedit menu ini!', 'error')
+        return redirect(url_for('admin.admin_menu'))
 
     menu_item.code = request.form.get('code', menu_item.code)
     menu_item.name = request.form.get('name', menu_item.name)
@@ -334,6 +372,9 @@ def admin_edit_menu(id):
     db.session.commit()
 
     flash('Menu berhasil diperbarui!', 'success')
+    bid = get_user_branch_id() or request.form.get('branch_id', type=int)
+    if bid:
+        return redirect(url_for('admin.admin_menu', branch_id=bid))
     return redirect(url_for('admin.admin_menu'))
 
 
@@ -342,6 +383,11 @@ def admin_edit_menu(id):
 @role_required('admin', 'manager')
 def admin_delete_menu(id):
     menu_item = MenuItem.query.get_or_404(id)
+
+    user_bid = get_user_branch_id()
+    if user_bid and menu_item.branch_id != user_bid:
+        flash('Anda tidak memiliki akses untuk menghapus menu ini!', 'error')
+        return redirect(url_for('admin.admin_menu'))
 
     # Check if menu item is used in any orders
     order_items = OrderItem.query.filter_by(menu_item_id=id).first()
@@ -368,7 +414,7 @@ def admin_delete_menu(id):
 def api_get_menu_item(id):
     """Get menu item data for edit form"""
     menu_item = MenuItem.query.get_or_404(id)
-    bid = get_user_branch_id()
+    bid = get_user_branch_id() or request.args.get('branch_id', type=int)
     data = {
         'id': menu_item.id,
         'code': menu_item.code,
@@ -395,7 +441,7 @@ def api_get_menu_item(id):
 def api_toggle_menu(id):
     """Toggle menu item availability (on/off / habis)"""
     menu_item = MenuItem.query.get_or_404(id)
-    bid = get_user_branch_id()
+    bid = get_user_branch_id() or request.args.get('branch_id', type=int)
 
     if bid:
         # Branch user: toggle per-branch availability
@@ -428,8 +474,25 @@ def admin_printer():
 @login_required
 @role_required('admin', 'manager')
 def admin_tables():
-    tables = Table.query.all()
-    return render_template('admin/tables.html', tables=tables)
+    user_bid = get_user_branch_id()
+    branches = None
+    selected_branch_id = user_bid
+
+    if user_bid is None:  # Admin
+        branches = Branch.query.order_by(Branch.name).all()
+        selected_branch_id = request.args.get('branch_id', type=int)
+        if selected_branch_id is None and branches:
+            selected_branch_id = branches[0].id
+
+    if selected_branch_id:
+        tables = Table.query.filter_by(branch_id=selected_branch_id).all()
+    else:
+        tables = Table.query.all()
+
+    return render_template('admin/tables.html',
+                         tables=tables,
+                         branches=branches,
+                         selected_branch_id=selected_branch_id)
 
 @admin_bp.route('/admin/tables/<int:table_id>/qr')
 @login_required
@@ -455,24 +518,31 @@ def admin_table_add():
     name = request.form.get('name', '').strip()
     capacity = int(request.form.get('capacity', 4))
 
+    target_branch_id = get_user_branch_id()
+    if target_branch_id is None:
+        target_branch_id = request.form.get('branch_id', type=int)
+
     if not number:
         flash('Nomor meja wajib diisi!', 'danger')
-        return redirect(url_for('admin.admin_tables'))
+        return redirect(url_for('admin.admin_tables', branch_id=target_branch_id))
 
-    if Table.query.filter_by(number=number).first():
-        flash('Nomor meja sudah ada!', 'danger')
-        return redirect(url_for('admin.admin_tables'))
+    # Check uniqueness within branch
+    exists = Table.query.filter_by(number=number, branch_id=target_branch_id).first()
+    if exists:
+        flash('Nomor meja sudah ada di cabang ini!', 'danger')
+        return redirect(url_for('admin.admin_tables', branch_id=target_branch_id))
 
     table = Table(
         number=number,
         name=name or f"Meja {number}",
-        capacity=capacity
+        capacity=capacity,
+        branch_id=target_branch_id
     )
     db.session.add(table)
     db.session.commit()
 
     flash(f'Meja {number} berhasil ditambahkan!', 'success')
-    return redirect(url_for('admin.admin_tables'))
+    return redirect(url_for('admin.admin_tables', branch_id=target_branch_id))
 
 @admin_bp.route('/admin/tables/<int:table_id>/delete', methods=['POST'])
 @login_required
@@ -480,6 +550,11 @@ def admin_table_add():
 def admin_table_delete(table_id):
     """Delete a table"""
     table = Table.query.get_or_404(table_id)
+
+    user_bid = get_user_branch_id()
+    if user_bid and table.branch_id != user_bid:
+        flash('Anda tidak memiliki akses!', 'danger')
+        return redirect(url_for('admin.admin_tables'))
 
     # Check if table has active orders
     has_active_order = Order.query.filter_by(table_id=table_id).filter(
@@ -516,6 +591,96 @@ def admin_table_toggle(table_id):
         'status': table.status,
         'message': f'Meja {table.number} status: {table.status}'
     })
+
+
+@admin_bp.route('/admin/menu/share', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_menu_share():
+    """Copy menu items from one branch to another"""
+    from_branch_id = request.form.get('from_branch_id', type=int)
+    to_branch_id = request.form.get('to_branch_id', type=int)
+
+    if not from_branch_id or not to_branch_id or from_branch_id == to_branch_id:
+        flash('Pilih cabang asal dan tujuan yang berbeda!', 'danger')
+        return redirect(url_for('admin.admin_menu'))
+
+    source_items = MenuItem.query.filter_by(branch_id=from_branch_id).all()
+    copied = 0
+    for item in source_items:
+        new_item = MenuItem(
+            code=item.code,
+            name=item.name,
+            price=item.price,
+            category_id=item.category_id,
+            description=item.description,
+            image=item.image,
+            is_popular=item.is_popular,
+            is_available=item.is_available,
+            has_spicy_option=item.has_spicy_option,
+            has_temperature_option=item.has_temperature_option,
+            stock=item.stock,
+            branch_id=to_branch_id
+        )
+        db.session.add(new_item)
+        db.session.flush()
+        bms = BranchMenuStock(branch_id=to_branch_id, menu_item_id=new_item.id, stock=100, is_available=True)
+        db.session.add(bms)
+        copied += 1
+
+    db.session.commit()
+
+    from_branch = Branch.query.get(from_branch_id)
+    to_branch = Branch.query.get(to_branch_id)
+    if not from_branch or not to_branch:
+        flash('Cabang tidak ditemukan!', 'danger')
+        return redirect(url_for('admin.admin_menu'))
+    flash(f'{copied} menu berhasil disalin dari {from_branch.name} ke {to_branch.name}!', 'success')
+    return redirect(url_for('admin.admin_menu', branch_id=to_branch_id))
+
+
+@admin_bp.route('/admin/tables/share', methods=['POST'])
+@login_required
+@role_required('admin')
+def admin_tables_share():
+    """Copy tables from one branch to another"""
+    from_branch_id = request.form.get('from_branch_id', type=int)
+    to_branch_id = request.form.get('to_branch_id', type=int)
+
+    if not from_branch_id or not to_branch_id or from_branch_id == to_branch_id:
+        flash('Pilih cabang asal dan tujuan yang berbeda!', 'danger')
+        return redirect(url_for('admin.admin_tables'))
+
+    source_tables = Table.query.filter_by(branch_id=from_branch_id).all()
+    copied = 0
+    skipped = 0
+    for t in source_tables:
+        exists = Table.query.filter_by(number=t.number, branch_id=to_branch_id).first()
+        if exists:
+            skipped += 1
+            continue
+        new_table = Table(
+            number=t.number,
+            name=t.name,
+            capacity=t.capacity,
+            branch_id=to_branch_id,
+            is_active=t.is_active
+        )
+        db.session.add(new_table)
+        copied += 1
+
+    db.session.commit()
+
+    from_branch = Branch.query.get(from_branch_id)
+    to_branch = Branch.query.get(to_branch_id)
+    if not from_branch or not to_branch:
+        flash('Cabang tidak ditemukan!', 'danger')
+        return redirect(url_for('admin.admin_tables'))
+    msg = f'{copied} meja berhasil disalin dari {from_branch.name} ke {to_branch.name}!'
+    if skipped:
+        msg += f' ({skipped} meja dilewati karena nomor sudah ada)'
+    flash(msg, 'success')
+    return redirect(url_for('admin.admin_tables', branch_id=to_branch_id))
 
 
 # ========== DISCOUNT/PROMO MANAGEMENT ==========

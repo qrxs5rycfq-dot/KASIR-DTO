@@ -148,9 +148,9 @@ def dashboard():
 @login_required
 @role_required('admin', 'manager', 'kasir')
 def pos():
-    categories = Category.query.filter_by(is_active=True).order_by(Category.order).all()
-    menu_items = MenuItem.query.filter_by(is_available=True).all()
-    tables = Table.query.filter_by(is_active=True).all()
+    categories = branch_filter(Category.query.filter_by(is_active=True), Category).order_by(Category.order).all()
+    menu_items = branch_filter(MenuItem.query.filter_by(is_available=True), MenuItem).all()
+    tables = branch_filter(Table.query.filter_by(is_active=True), Table).all()
     
     return render_template('pos.html',
                          categories=categories,
