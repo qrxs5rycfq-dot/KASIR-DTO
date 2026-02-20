@@ -136,12 +136,10 @@
             </div>
             <div>
                 <label class="text-sm text-gray-400 mb-1 block">Cabang</label>
-                <select name="branch_id" class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
-                    {% if is_owner %}
-                    <option value="">Semua Cabang (Owner)</option>
-                    {% endif %}
-                    {% for branch in all_branches %}
-                    <option value="{{ branch.id }}" {% if current_branch and branch.id == current_branch.id %}selected{% endif %}>{{ branch.name }} ({{ branch.code }})</option>
+                <select name="branch_id" id="add-user-branch" class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-white">
+                    <option value="">Semua Cabang (Admin)</option>
+                    {% for branch in branches %}
+                    <option value="{{ branch.id }}">{{ branch.name }} ({{ branch.code }})</option>
                     {% endfor %}
                 </select>
             </div>

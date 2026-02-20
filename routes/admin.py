@@ -116,9 +116,10 @@ def get_platform_config(platform):
 @login_required
 @role_required('admin')
 def admin_users():
-    users = branch_filter(User.query, User).all()
+    users = User.query.all()
     roles = Role.query.all()
-    return render_template('admin/users.html', users=users, roles=roles)
+    branches = Branch.query.filter_by(is_active=True).order_by(Branch.name).all()
+    return render_template('admin/users.html', users=users, roles=roles, branches=branches)
 
 @admin_bp.route('/admin/users/create', methods=['POST'])
 @login_required
@@ -611,7 +612,12 @@ def admin_menu_share():
         flash('Cabang tidak ditemukan!', 'danger')
         return redirect(url_for('admin.admin_menu'))
 
-    source_items = MenuItem.query.filter_by(branch_id=from_branch_id).all()
+    # Support individual item selection (item_ids[]) or all items
+    selected_ids = request.form.getlist('item_ids[]')
+    if selected_ids:
+        source_items = MenuItem.query.filter(MenuItem.id.in_([int(i) for i in selected_ids]), MenuItem.branch_id == from_branch_id).all()
+    else:
+        source_items = MenuItem.query.filter_by(branch_id=from_branch_id).all()
     copied = 0
     skipped = 0
     for item in source_items:
@@ -666,7 +672,12 @@ def admin_tables_share():
         flash('Cabang tidak ditemukan!', 'danger')
         return redirect(url_for('admin.admin_tables'))
 
-    source_tables = Table.query.filter_by(branch_id=from_branch_id).all()
+    # Support individual table selection (table_ids[]) or all tables
+    selected_ids = request.form.getlist('table_ids[]')
+    if selected_ids:
+        source_tables = Table.query.filter(Table.id.in_([int(i) for i in selected_ids]), Table.branch_id == from_branch_id).all()
+    else:
+        source_tables = Table.query.filter_by(branch_id=from_branch_id).all()
     copied = 0
     skipped = 0
     for t in source_tables:

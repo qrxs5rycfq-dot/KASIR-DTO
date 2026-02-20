@@ -33,7 +33,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <button onclick="document.getElementById('share-table-modal').classList.remove('hidden')" 
+            <button onclick="openShareTableModal()" 
                     class="px-4 py-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-lg text-sm font-medium">
                 <i class="fas fa-share-alt mr-2"></i>Salin Meja ke Cabang Lain
             </button>
@@ -56,6 +56,11 @@
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {% for table in tables %}
             <div class="glass-card rounded-2xl p-4 text-center relative group">
+                {% if branches %}
+                <label class="absolute top-2 left-2 z-10 cursor-pointer" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="share-table-item w-4 h-4 rounded accent-primary-500" value="{{ table.id }}">
+                </label>
+                {% endif %}
                 <!-- Delete button -->
                 <button data-table-id="{{ table.id }}" data-table-number="{{ table.number }}"
                         onclick="confirmDelete(this.dataset.tableId, this.dataset.tableNumber)" 
@@ -102,9 +107,11 @@
         <!-- Share Tables Modal -->
         <div id="share-table-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div class="glass-card rounded-2xl p-6 w-full max-w-md mx-4">
-                <h3 class="text-xl font-bold mb-4">Salin Meja ke Cabang Lain</h3>
-                <form method="POST" action="{{ url_for('admin.admin_tables_share') }}">
+                <h3 class="text-xl font-bold mb-2">Salin Meja ke Cabang Lain</h3>
+                <p class="text-sm text-gray-400 mb-4" id="share-table-info">Pilih meja dengan centang (✓) atau salin semua</p>
+                <form method="POST" action="{{ url_for('admin.admin_tables_share') }}" id="share-table-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div id="share-table-ids"></div>
                     <div class="mb-4">
                         <label class="block text-gray-400 text-sm mb-1">Dari Cabang</label>
                         <select name="from_branch_id" class="w-full bg-white/10 border border-white/20 rounded-lg py-2 px-3 text-white">
@@ -255,6 +262,25 @@ async function toggleStatus(tableId) {
     } catch (error) {
         alert('Error: ' + error.message);
     }
+}
+
+// Share: populate selected table IDs when opening share modal
+function openShareTableModal() {
+    const checked = document.querySelectorAll('.share-table-item:checked');
+    const container = document.getElementById('share-table-ids');
+    const info = document.getElementById('share-table-info');
+    container.innerHTML = '';
+    if (checked.length > 0) {
+        checked.forEach(cb => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'table_ids[]'; inp.value = cb.value;
+            container.appendChild(inp);
+        });
+        info.textContent = checked.length + ' meja dipilih untuk disalin';
+    } else {
+        info.textContent = 'Tidak ada yang dipilih — semua meja akan disalin';
+    }
+    document.getElementById('share-table-modal').classList.remove('hidden');
 }
 </script>
 {% endblock %}

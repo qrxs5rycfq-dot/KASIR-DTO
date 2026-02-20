@@ -285,14 +285,21 @@ def expenses():
     # Get filter parameters
     month = request.args.get('month', date.today().strftime('%Y-%m'))
     category_filter = request.args.get('category', 'all')
+    is_admin = current_user.has_role('admin')
+    filter_branch_id = request.args.get('branch_id', '', type=str).strip()
     
     try:
         filter_year, filter_month = map(int, month.split('-'))
     except (ValueError, AttributeError):
         filter_year, filter_month = date.today().year, date.today().month
     
-    # Build query
-    query = branch_filter(Expense.query, Expense).filter(
+    # Build query — admin can filter by branch
+    if is_admin and filter_branch_id:
+        query = Expense.query.filter_by(branch_id=int(filter_branch_id))
+    else:
+        query = branch_filter(Expense.query, Expense)
+    
+    query = query.filter(
         db.extract('year', Expense.date) == filter_year,
         db.extract('month', Expense.date) == filter_month
     )
@@ -309,6 +316,8 @@ def expenses():
         label = Expense.CATEGORIES.get(e.category, e.category)
         category_totals[label] = category_totals.get(label, 0) + e.amount
     
+    branches = Branch.query.filter_by(is_active=True).order_by(Branch.name).all() if is_admin else []
+    
     return render_template('expenses.html',
                          expenses=expense_list,
                          total_expenses=total_expenses,
@@ -316,6 +325,9 @@ def expenses():
                          expense_categories=Expense.CATEGORIES,
                          current_month=month,
                          category_filter=category_filter,
+                         is_admin=is_admin,
+                         branches=branches,
+                         filter_branch_id=filter_branch_id,
                          active_page='expenses',
                          now=datetime.now())
 
@@ -401,7 +413,9 @@ def kitchen():
 @login_required
 @role_required('admin', 'manager', 'kasir')
 def reports():
-    return render_template('reports.html')
+    is_admin = current_user.has_role('admin')
+    branches = Branch.query.filter_by(is_active=True).order_by(Branch.name).all() if is_admin else []
+    return render_template('reports.html', is_admin=is_admin, branches=branches)
 
 @views_bp.route('/analytics')
 @login_required
@@ -679,6 +693,7 @@ def analytics():
     profit_margin = round((net_profit / month_revenue * 100), 1) if month_revenue > 0 else 0
     
     return render_template('analytics.html',
+        is_admin=get_user_branch_id() is None,
         today_revenue=today_revenue,
         yesterday_revenue=yesterday_revenue,
         revenue_growth=revenue_growth,
@@ -1206,15 +1221,25 @@ def payment_page(order_id):
 @role_required('admin', 'manager', 'kasir')
 def orders():
     status_filter = request.args.get('status', 'all')
+    is_admin = current_user.has_role('admin')
     
-    query = branch_filter(Order.query, Order).order_by(Order.created_at.desc())
+    # Admin can filter by branch
+    filter_branch_id = request.args.get('branch_id', '', type=str).strip()
+    if is_admin and filter_branch_id:
+        query = Order.query.filter_by(branch_id=int(filter_branch_id))
+    else:
+        query = branch_filter(Order.query, Order)
+    
+    query = query.order_by(Order.created_at.desc())
     
     if status_filter != 'all':
         query = query.filter_by(status=status_filter)
     
     orders = query.limit(100).all()
+    branches = Branch.query.filter_by(is_active=True).order_by(Branch.name).all() if is_admin else []
     
-    return render_template('orders.html', orders=orders, status_filter=status_filter)
+    return render_template('orders.html', orders=orders, status_filter=status_filter,
+                         is_admin=is_admin, branches=branches, filter_branch_id=filter_branch_id)
 
 
 # ============================================
